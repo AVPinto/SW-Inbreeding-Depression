@@ -1,3 +1,3 @@
 # SW-Inbreeding-Depression
 
-This is an RStudio readme !
+These scripts and data are generated from the Seychelles warbler Research Group.
