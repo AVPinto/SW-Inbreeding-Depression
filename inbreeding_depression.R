@@ -37,7 +37,6 @@ stat.birds <- read.csv("clean_data.csv")
 stat.birds$helpF <- as.factor(stat.birds$help)
 stat.birds$BreedSeason <- as.factor(stat.birds$BreedSeason)
 stat.birds$Sex <- as.factor(stat.birds$Sex)
-stat.birds$DeathEventL <- as.logical(stat.birds$DeathEvent)
 stat.birds$mum <- as.factor(stat.birds$mum)
 stat.birds$dad <- as.factor(stat.birds$dad)
 stat.birds$birth_yearF <- as.factor(stat.birds$birth_year)
@@ -219,7 +218,7 @@ just.lifespan.largefroh.plot <- ggplot(just_birds, aes(LargeFROH, lifespan)) +
 
 #use binomial family as survival is binary
 
-just.fys.1 <- glmer(adulthood ~ LargeFROH + + Sex + help + birth_total_rain + BirthRainCV + 
+just.fys.1 <- glmer(adulthood ~ LargeFROH  + Sex + help + birth_total_rain + BirthRainCV + 
                       (1 | birth_year) + (1 | mum) + (1 | dad) ,
                     data = just_birds,
                     family=binomial,
@@ -309,18 +308,13 @@ summary(just.fys.rescale.f)
 #output table
 tbl_regression(just.fys.rescale.f, intercept = T, show_single_row = "Sex")
 
-#plot
-predict.just.fys.rescale.f <- ggpredict(just.fys.rescale.f)
+#plot with ggpredict. doesn't quite work
+predict.just.fys.rescale.f <- ggpredict(just.fys.rescale.f, terms = "LargeFROH[all]")
 
+plot(predict.just.fys.rescale.f, show_data = TRUE) 
 
-
-plot(predict.just.fys.rescale.f$LargeFROH, show_data = TRUE) 
-
-
-
-#plot
-  #need to plot this better
-#just.fys.largefroh.plot <- 
+#plot with ggplot
+ #just.fys.largefroh.plot <- 
   
   ggplot(just_birds, aes(LargeFROH, adulthood)) +
     geom_boxplot()+
@@ -422,4 +416,192 @@ just.lrs.nbinom1.d <- update(just.lrs.nbinom1 , ~ . + LargeFROH*mean_total_rain)
 summary(just.lrs.nbinom1.d) #model converges, not sig
 
 anova(just.lrs.nbinom1, just.lrs.nbinom1.c) #anova says no
+
+
+
+
+
+
+
+
+
+
+#------------------------cox model---------------
+
+#right censor still alive and translocated birds
+#use stat.birds rather than just_birds as we can include censored birds
+
+
+stat.cox.me <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+                       mean_total_rain + mean_rain_cv +
+                    (1 | mum) + (1 | dad) ,
+                  data = stat.birds , 
+                  control = coxme.control(iter.max  = 200)
+                  ) 
+
+#model converges ok
+
+#some tests
+
+#proportional hazards tests
+cox.test <- cox.zph(stat.cox.me)
+print(cox.test) #GLOBAL and mean_rain_cv violates the assumptions of proportional hazards
+
+plot(cox.test, var = "mean_rain_cv")# seems to increase over time.
+#maybe this is related to weather getting wackier recently
+
+
+#we will remove it
+stat.cox.me.a <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+                         mean_total_rain + 
+                         (1 | mum) + (1 | dad) ,
+                       data = stat.birds , 
+                       control = coxme.control(iter.max  = 200)
+) 
+
+cox.zph(stat.cox.me.a) #GLOBAL now conforms to ph assumptions
+
+anova(stat.cox.me, stat.cox.me.a) #no sig diff. We can leave mean_rain_cv out.
+
+#now test interactions
+
+#froh * sex
+
+stat.cox.me.b <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+                            mean_total_rain + rescale(LargeFROH)*Sex +
+                            (1 | mum) + (1 | dad) ,
+                          data = stat.birds , 
+                          control = coxme.control(iter.max  = 200)
+                       )
+
+summary(stat.cox.me.b) #model converges. not significant
+
+cox.zph(stat.cox.me.b) #fine
+
+anova(stat.cox.me.a, stat.cox.me.b) #no sig diff
+
+#froh * help
+
+stat.cox.me.c <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+                         mean_total_rain + rescale(LargeFROH)*help +
+                         (1 | mum) + (1 | dad) ,
+                       data = stat.birds , 
+                       control = coxme.control(iter.max  = 200)
+)
+
+summary(stat.cox.me.c) #model converges. not significant
+
+cox.zph(stat.cox.me.c) #fine
+
+anova(stat.cox.me.a, stat.cox.me.c) #no sig diff
+
+#froh * MumAge
+
+stat.cox.me.d <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+                         mean_total_rain + rescale(LargeFROH)*MumAge +
+                         (1 | mum) + (1 | dad) ,
+                       data = stat.birds , 
+                       control = coxme.control(iter.max  = 200)
+)
+
+summary(stat.cox.me.d) #model converges. not significant
+
+cox.zph(stat.cox.me.d) #fine
+
+anova(stat.cox.me.a, stat.cox.me.d) #no sig diff
+
+#froh * rain
+
+stat.cox.me.e <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+                         mean_total_rain + rescale(LargeFROH)*mean_total_rain +
+                         (1 | mum) + (1 | dad) ,
+                       data = stat.birds , 
+                       control = coxme.control(iter.max  = 200)
+)
+
+summary(stat.cox.me.e) #model converges. not significant
+
+cox.zph(stat.cox.me.e) #fine
+
+anova(stat.cox.me.a, stat.cox.me.e) #no sig diff
+
+#quadratic rain
+
+stat.cox.me.f <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+                         mean_total_rain + I(mean_total_rain^2) +
+                         (1 | mum) + (1 | dad) ,
+                       data = stat.birds , 
+                       control = coxme.control(iter.max  = 200)
+)
+
+summary(stat.cox.me.f) #model converges. quadratic rain IS significant
+
+cox.zph(stat.cox.me.f) #GLOBAL is not fine but all variables are?
+plot(cox.zph(stat.cox.me.f))
+
+
+
+anova(stat.cox.me.a, stat.cox.me.f) #sig diff!!
+
+
+
+#table output
+tbl_regression(stat.cox.me.a, intercept = T, show_single_row = "Sex")
+
+#plot
+
+#first bin the rohs
+
+cox.plot.birds <- stat.birds
+cox.plot.birds$FROH_class <- 0
+cox.plot.birds <- cox.plot.birds %>% select(-DeathEventL)
+
+
+for (n in seq(length(cox.plot.birds$LargeFROH))) {
+  
+  if(cox.plot.birds$LargeFROH[n] < 0.2 ) {
+    cox.plot.birds$FROH_class [n] <- "< 0.2"
+    
+  } 
+  
+  if (cox.plot.birds$LargeFROH[n] > 0.2 && cox.plot.birds$LargeFROH[n] <= 0.3){
+    cox.plot.birds$FROH_class [n] <- " 0.2 - 0.3"
+  }
+
+  if (cox.plot.birds$LargeFROH[n] > 0.3 ){
+    cox.plot.birds$FROH_class [n] <- ">0.3"
+  }
+}
+
+
+cox.surv.froh <- survfit(Surv(lifespan,event)~ LargeFROH, data = cox.plot.birds)
+
+cox.surv.froh.plot <- ggsurvplot(cox.surv.froh, data = cox.plot.birds,
+                                  xlab="Years",
+                                  legend.title = "FROH >33MB proportion",
+                                  legend.labs = c("< 0.2", "0.2-0.3", "> 0.3"),
+                                  pval = TRUE,
+                                  conf.int = TRUE,
+                                  font.y = 20,
+                                  font.x = 20,
+                                  font.legend  = c(20, "blue"))
+
+
+cox.surv.froh.plot
+
+
+#ggpredict plot
+
+cox.plot.ph.ggpedict.data <- ggpredict(cox.plot.ph , terms = "LargeFROH[all]" )
+
+cox.plot.ph <- coxph(Surv(lifespan, event) ~  rescale(LargeFROH), 
+                     data = cox.plot.birds )
+
+plot(cox.plot.ph.ggpedict.data, show_data = TRUE) 
+
+
+predict.cox.me.a <- ggpredict(stat.cox.me.a, terms = "LargeFROH[all]")
+
+
+
 
