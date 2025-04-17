@@ -160,8 +160,7 @@ just.lifespan.nbinom1.f <- update(just.lifespan.nbinom1, ~ . +  LargeFROH*help)
 
 summary(just.lifespan.nbinom1.f) #model converges. int not sig
 
-anova(just.lifespan.nbinom1, just.lifespan.nbinom1.f) #anova says 0.51, almmost useful to include!
-
+anova(just.lifespan.nbinom1, just.lifespan.nbinom1.f) #anova says 0.51
 
 
 ##test for quadratic terms... perhaps the ID or weather is non-linear
@@ -186,10 +185,38 @@ summary(just.lifespan.nbinom1.h) #model does not converge.
 summary(just.lifespan.nbinom1)
 
 #output table
-tbl_regression(just.lifespan.nbinom1, intercept = T, show_single_row = "Sex")
+tbl_regression(just.lifespan.nbinom1,
+               intercept = T,
+               show_single_row = "Sex",
+               pvalue_fun = label_style_pvalue(digits = 3),
+               estimate_fun = label_style_number(digits = 4),
+               label = list(LargeFROH = "FROH > 3.3Mb", 
+                            help = "Helper in natal territory",
+                            mean_total_rain = "Mean annual rainfall over lifespan",
+                            mean_rain_cv = "Mean variance in annual rainfall over lifespan",
+                            birth_year = "Hatch year")
+               )
 
-#plot
-plot(ggpredict(just.lifespan.nbinom1), show_data = TRUE, jitter = T) 
+####plots
+
+##plot with ggpredict
+#make ggpredict object
+ggpred.just.lifespan.nbinom1 <-  ggpredict(just.lifespan.nbinom1,
+                                           terms = "LargeFROH[all]")
+
+plot(ggpred.just.lifespan.nbinom1)
+
+#plot with ggggeffects for ggplot utility
+autoplot(ggpred.just.lifespan.nbinom1)+
+  geom_expected_line()+
+  geom_CI_ribbon()+
+  theme_classic2()+
+  labs( x = "fROH > 3.3Mb", y= "Predicted Lifespan")+
+  theme(text = element_text(size = 20)) +
+  ggtitle("Fig. 1 - Predicted fit of GLMM Lifespan ~ FROH")+
+  layer_fit_data(alpha = 0.2)
+  
+
 
 #ggplot
 just.lifespan.largefroh.plot <- ggplot(just_birds, aes(LargeFROH, lifespan)) +
@@ -297,30 +324,65 @@ just.fys.rescale.g <- update(just.fys.rescale, ~ . + I(rescale(birth_total_rain^
 
 summary(just.fys.rescale.g)# model converges. interaction not significant
 
-anova(just.fys.rescale, just.fys.rescale.g) #anova says 0.001826  keep it!
+anova(just.fys.rescale, just.fys.rescale.g) 
 
+####summary
 
 #In summary we keep model f
 summary(just.fys.rescale.f)
 
 
-
 #output table
-tbl_regression(just.fys.rescale.f, intercept = T, show_single_row = "Sex")
+tbl_regression(just.fys.rescale.f, intercept = T,
+               show_single_row = "Sex",
+               label = list("rescale(LargeFROH)" = "FROH > 3.3Mb", 
+                            help = "Helper in natal territory",
+                            "rescale(birth_total_rain)"	 = "Annual rainfall in hatch year",
+                            "rescale(BirthRainCV)" = "Variance in rainfall in hatch year",
+                            "I(rescale(birth_total_rain^2))" = "Quadratic of Annual rainfall"))
 
 #plot with ggpredict. doesn't quite work
-predict.just.fys.rescale.f <- ggpredict(just.fys.rescale.f, terms = "LargeFROH[all]")
 
-plot(predict.just.fys.rescale.f, show_data = TRUE) 
+##plots
+#with ggpredict
+##plot with ggpredict
+#make ggpredict object
+ggpred.just.fys.rescale.f <-  ggpredict(just.fys.rescale.f,
+                                           terms = "LargeFROH[all]")
+
+plot(ggpred.just.fys.rescale.f)
+
+#plot with ggggeffects for ggplot utility
+autoplot(ggpred.just.fys.rescale.f)+
+  geom_expected_line()+
+  geom_CI_ribbon()+
+  theme_classic2()+
+  labs( x = "fROH > 3.3Mb", y= "Predicted Lifespan")+
+  theme(text = element_text(size = 20)) +
+  ggtitle("Fig. 1 - Predicted fit of GLMM Lifespan ~ FROH")+
+  layer_fit_data(alpha = 0.2)
+
+
+predict.just.fys.rescale.f <- ggpredict(just.fys.rescale.f, terms="LargeFROH [all]")
+
+plot(predict.just.fys.rescale.f) 
 
 #plot with ggplot
- #just.fys.largefroh.plot <- 
   
   ggplot(just_birds, aes(LargeFROH, adulthood)) +
     geom_boxplot()+
   theme_classic2()+
   labs( x = "fROH > 3.3Mb", y= "Recruitment to Adulthood")+
-  theme(text = element_text(size = 20))
+  theme(text = element_text(size = 20))+
+  ggtitle("Fig. 2")
+  
+  
+  ggplot(just_birds, aes(birth_total_rain, adulthood)) +
+    geom_jitter()+
+    theme_classic2()+
+    labs( x = "Total annual rainfall", y= "Recruitment to Adulthood")+
+    theme(text = element_text(size = 20))+
+    ggtitle("Fig. 2")
   
 
 
@@ -331,7 +393,7 @@ plot(predict.just.fys.rescale.f, show_data = TRUE)
   
   
   
-#----------------------lifetime reproductive success----------
+#----------------------lifetime reproductive success----------NOT FINISHED
   #unfinished#
   
   hist(just_birds$n_off, breaks = 16)
@@ -426,13 +488,13 @@ anova(just.lrs.nbinom1, just.lrs.nbinom1.c) #anova says no
 
 
 
-#------------------------cox model---------------
+###############------------------------cox model---------------NOT FINISHED
 
 #right censor still alive and translocated birds
 #use stat.birds rather than just_birds as we can include censored birds
 
 
-stat.cox.me <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+stat.cox.me <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + 
                        mean_total_rain + mean_rain_cv +
                     (1 | mum) + (1 | dad) ,
                   data = stat.birds , 
@@ -539,14 +601,30 @@ summary(stat.cox.me.f) #model converges. quadratic rain IS significant
 cox.zph(stat.cox.me.f) #GLOBAL is not fine but all variables are?
 plot(cox.zph(stat.cox.me.f))
 
+#adding the quadratic term improves the fit but violates the ph assumptions
+#check for interactions with the term
+
+stat.cox.me.g <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+                         mean_total_rain + I(mean_total_rain^2) + I(mean_total_rain^2)*lifespan +
+                         (1 | mum) + (1 | dad) ,
+                       data = stat.birds , 
+                       control = coxme.control(iter.max  = 200)
+)
+
+summary(stat.cox.me.g) #model converges. quadratic rain IS significant
+
+cox.zph(stat.cox.me.g)
+
+anova(stat.cox.me.a, stat.cox.me.g) #sig diff!!
 
 
-anova(stat.cox.me.a, stat.cox.me.f) #sig diff!!
 
 
 
 #table output
 tbl_regression(stat.cox.me.a, intercept = T, show_single_row = "Sex")
+
+
 
 #plot
 
