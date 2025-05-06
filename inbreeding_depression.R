@@ -29,6 +29,8 @@ library(gtsummary)
 library(glue)
 install.packages("gtsummary")
 install.packages("glue")
+library(interactions)
+
 
 #----------------------------------import data--------------
 
@@ -195,7 +197,10 @@ tbl_regression(just.lifespan.nbinom1,
                             mean_total_rain = "Mean annual rainfall over lifespan",
                             mean_rain_cv = "Mean variance in annual rainfall over lifespan",
                             birth_year = "Hatch year")
-               )
+               ) %>%
+  modify_column_hide(column = conf.low) %>%
+  
+  modify_column_unhide(column = c(std.error,statistic)) 
 
 ####plots
 
@@ -340,6 +345,11 @@ tbl_regression(just.fys.rescale.f, intercept = T,
                             "rescale(birth_total_rain)"	 = "Annual rainfall in hatch year",
                             "rescale(BirthRainCV)" = "Variance in rainfall in hatch year",
                             "I(rescale(birth_total_rain^2))" = "Quadratic of Annual rainfall"))
+%>%
+  modify_column_hide(column = conf.low) %>%
+  
+  modify_column_unhide(column = c(std.error,statistic)) 
+
 
 #plot with ggpredict. doesn't quite work
 
@@ -391,18 +401,17 @@ plot(predict.just.fys.rescale.f)
   
   
   
+  #----------------------------------lifetime reproductive success--------------  
   
-  
-#----------------------lifetime reproductive success----------NOT FINISHED
   #unfinished#
   
   hist(just_birds$n_off, breaks = 16)
   
   #quite zero inflated
   
-just.lrs.poisson <- glmmTMB(n_off ~ LargeFROH + lifespan + help + MumAge + Sex + 
+just.lrs.poisson <- glmmTMB(n_off ~ LargeFROH + lifespan + help + Sex + 
                               mean_total_rain + mean_rain_cv + birth_year +
-                      + (1 | mum) + (1 | dad),
+                      (1 | mum) + (1 | dad),
                       data = just_birds,
                       ziformula=~1,
                       family=poisson)
@@ -435,7 +444,7 @@ just.lrs.nbinom2 <- update(just.lrs.poisson, family=nbinom2())
 
 
 simulateResiduals(just.lrs.nbinom2, plot = TRUE)
-#qq is better, but residuals are slightly bad
+#qq is slightly worse, but residuals are slightly bad
 
 #check for collinearity and overdispersion
 check_collinearity(just.lrs.nbinom2) #vif around one
@@ -445,50 +454,147 @@ check_overdispersion(just.lrs.nbinom2) #no overdisp
 AIC(just.lrs.nbinom1, just.lrs.nbinom2, just.lrs.poisson)
 
 #df      AIC
-#just.lrs.nbinom1 13 3230.470
-#just.lrs.nbinom2 13 3218.410
-#just.lrs.poisson 12 3386.051
-
-#lets go with nbinom1 again, it seems good
+#just.lrs.nbinom1 12 3228.666
+#just.lrs.nbinom2 12 3216.414
+#just.lrs.poisson 11 3384.531
 
 summary(just.lrs.nbinom1)
+summary(just.lrs.nbinom2)
+summary(just.lrs.poisson)
+
+#nbinoms have better AIC but are unstable. lets use poisson.
+
+
+
 
 #try interactions
 
 #froh*help
 
-just.lrs.nbinom1.b <- update(just.lrs.nbinom1 , ~ . + LargeFROH*help)
+just.lrs.poisson.b <- update(just.lrs.poisson , ~ . + LargeFROH*help)
 
-summary(just.lrs.nbinom1.b) #model converges, not sig
+summary(just.lrs.poisson.b) #model converges, not sig
 
-anova(just.lrs.nbinom1, just.lrs.nbinom1.b) #anova says no
+anova(just.lrs.poisson, just.lrs.poisson.b) #anova says not quite
 
 #froh*sex
 
-just.lrs.nbinom1.c <- update(just.lrs.nbinom1 , ~ . + LargeFROH*Sex - (1|MumID) - (1|DadID))
+just.lrs.poisson.c <- update(just.lrs.poisson , ~ . + LargeFROH*Sex)
 
-summary(just.lrs.nbinom1.c) #model does not converge! 
+summary(just.lrs.poisson.c) #model converges, anova says not quite 
 
-anova(just.lrs.nbinom1, just.lrs.nbinom1.c) 
+anova(just.lrs.poisson, just.lrs.poisson.c) 
 
 #froh*mean_rain
 
-just.lrs.nbinom1.d <- update(just.lrs.nbinom1 , ~ . + LargeFROH*mean_total_rain)
+just.lrs.poisson.d <- update(just.lrs.poisson , ~ . + LargeFROH*mean_total_rain)
 
-summary(just.lrs.nbinom1.d) #model converges, not sig
+summary(just.lrs.poisson.d) #model converges, is significant!
 
-anova(just.lrs.nbinom1, just.lrs.nbinom1.c) #anova says no
-
-
+anova(just.lrs.poisson, just.lrs.poisson.d) #anova says yes!?
 
 
+#froh*rain variance
+
+just.lrs.poisson.e <- update(just.lrs.poisson , ~ . + LargeFROH*mean_rain_cv)
+
+summary(just.lrs.poisson.e) #model converges, is not significant!
+
+anova(just.lrs.poisson, just.lrs.poisson.e) #anova says no
+
+
+
+
+####summary
+
+#model d, with the froh mean annual rain interaction is the best model
+
+#we will output the base model first just in case
+summary(just.lrs.poisson)
+
+tbl_regression(just.lrs.poisson, intercept = T,
+               show_single_row = "Sex",
+               label = list("LargeFROH" = "FROH > 3.3Mb", 
+                            "help" = "Helper in natal territory",
+                            "mean_total_rain"	 = "Mean annual rainfall during lifespan",
+                            "mean_rain_cv" = "Mean variance annual rainfall during lifespan",
+                            "birth_year" = "Birth year",
+                            "lifespan" ="Lifespan")
+)%>%
+  
+  modify_column_hide(column = conf.low) %>%
+  
+  modify_column_unhide(column = c(std.error,statistic))  
+
+
+##plots
+#with ggpredict
+
+#make ggpredict object
+ggpred.just.lrs.poisson <-  ggpredict(just.lrs.poisson,
+                                        terms = "LargeFROH[all]")
+
+plot(ggpred.just.lrs.poisson)
+
+#plot with ggggeffects for ggplot utility
+autoplot(ggpred.just.lrs.poisson)+
+  geom_expected_line()+
+  geom_CI_ribbon()+
+  theme_classic2()+
+  labs( x = "fROH > 3.3Mb", y= "Lifetime reproductive success")+
+  theme(text = element_text(size = 20)) +
+  ggtitle("Fig. 3.1 - Predicted fit of GLMM LRS ~ FROH")+
+  layer_fit_data(alpha = 0.2)
 
 
 
 
 
 
-###############------------------------cox model---------------NOT FINISHED
+#output model with interaction
+summary(just.lrs.poisson.d)
+
+
+#output table
+tbl_regression(just.lrs.poisson.d, intercept = T,
+               show_single_row = "Sex",
+               label = list("LargeFROH" = "FROH > 3.3Mb", 
+                            "help" = "Helper in natal territory",
+                            "mean_total_rain"	 = "Mean annual rainfall during lifespan",
+                            "mean_rain_cv" = "Mean variance annual rainfall during lifespan",
+                            "birth_year" = "Birth year",
+                            "lifespan" ="Lifespan")
+)%>%
+               
+  modify_column_hide(column = conf.low) %>%
+  
+  modify_column_unhide(column = c(std.error,statistic))                
+
+#plot with ggpredict. doesn't quite work
+
+##plots
+
+#try sliceplotting
+
+interact_plot(just.lrs.poisson.d,
+              pred = LargeFROH,
+              modx = mean_total_rain,
+              modx.values = "terciles",
+              interval = T,
+              plot.points = T)+
+  theme_classic2()+
+  labs( x = "fROH > 3.3Mb",
+        y= "Lifetime reproductive success",
+        fill = "Mean annual Rainfall over lifespan")+
+  theme(text = element_text(size = 20)) +
+  ggtitle("Fig. 3.2 - Predicted fit of GLMM LRS ~ FROH
+          with Mean Annual Rainfall interaction")
+
+
+
+
+
+#------------------------cox model---------------
 
 #right censor still alive and translocated birds
 #use stat.birds rather than just_birds as we can include censored birds
@@ -512,10 +618,12 @@ print(cox.test) #GLOBAL and mean_rain_cv violates the assumptions of proportiona
 plot(cox.test, var = "mean_rain_cv")# seems to increase over time.
 #maybe this is related to weather getting wackier recently
 
+summary(stat.cox.me) #it's not significant
+
 
 #we will remove it
-stat.cox.me.a <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
-                         mean_total_rain + 
+stat.cox.me.a <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + 
+                         mean_total_rain +  
                          (1 | mum) + (1 | dad) ,
                        data = stat.birds , 
                        control = coxme.control(iter.max  = 200)
@@ -523,13 +631,11 @@ stat.cox.me.a <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help +
 
 cox.zph(stat.cox.me.a) #GLOBAL now conforms to ph assumptions
 
-anova(stat.cox.me, stat.cox.me.a) #no sig diff. We can leave mean_rain_cv out.
-
 #now test interactions
 
 #froh * sex
 
-stat.cox.me.b <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+stat.cox.me.b <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + 
                             mean_total_rain + rescale(LargeFROH)*Sex +
                             (1 | mum) + (1 | dad) ,
                           data = stat.birds , 
@@ -544,7 +650,7 @@ anova(stat.cox.me.a, stat.cox.me.b) #no sig diff
 
 #froh * help
 
-stat.cox.me.c <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+stat.cox.me.c <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + 
                          mean_total_rain + rescale(LargeFROH)*help +
                          (1 | mum) + (1 | dad) ,
                        data = stat.birds , 
@@ -559,22 +665,22 @@ anova(stat.cox.me.a, stat.cox.me.c) #no sig diff
 
 #froh * MumAge
 
-stat.cox.me.d <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
-                         mean_total_rain + rescale(LargeFROH)*MumAge +
-                         (1 | mum) + (1 | dad) ,
-                       data = stat.birds , 
-                       control = coxme.control(iter.max  = 200)
-)
-
-summary(stat.cox.me.d) #model converges. not significant
-
-cox.zph(stat.cox.me.d) #fine
-
-anova(stat.cox.me.a, stat.cox.me.d) #no sig diff
+#stat.cox.me.d <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+#                         mean_total_rain + rescale(LargeFROH)*MumAge +
+#                         (1 | mum) + (1 | dad) ,
+#                       data = stat.birds , 
+#                       control = coxme.control(iter.max  = 200)
+#)
+#
+#summary(stat.cox.me.d) #model converges. not significant
+#
+#cox.zph(stat.cox.me.d) #fine
+#
+#anova(stat.cox.me.a, stat.cox.me.d) #no sig diff
 
 #froh * rain
 
-stat.cox.me.e <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+stat.cox.me.e <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + 
                          mean_total_rain + rescale(LargeFROH)*mean_total_rain +
                          (1 | mum) + (1 | dad) ,
                        data = stat.birds , 
@@ -589,7 +695,7 @@ anova(stat.cox.me.a, stat.cox.me.e) #no sig diff
 
 #quadratic rain
 
-stat.cox.me.f <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
+stat.cox.me.f <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + 
                          mean_total_rain + I(mean_total_rain^2) +
                          (1 | mum) + (1 | dad) ,
                        data = stat.birds , 
@@ -601,28 +707,37 @@ summary(stat.cox.me.f) #model converges. quadratic rain IS significant
 cox.zph(stat.cox.me.f) #GLOBAL is not fine but all variables are?
 plot(cox.zph(stat.cox.me.f))
 
-#adding the quadratic term improves the fit but violates the ph assumptions
+#adding the quadratic term improves the fit but makes GLOBAL not fit assumptions
+
 #check for interactions with the term
 
 stat.cox.me.g <- coxme(Surv(lifespan, event) ~  rescale(LargeFROH) +Sex + help + MumAge +
-                         mean_total_rain + I(mean_total_rain^2) + I(mean_total_rain^2)*lifespan +
+                         mean_total_rain + I(mean_total_rain^2) + I(mean_total_rain^2)*rescale(LargeFROH) +
                          (1 | mum) + (1 | dad) ,
                        data = stat.birds , 
                        control = coxme.control(iter.max  = 200)
 )
 
-summary(stat.cox.me.g) #model converges. quadratic rain IS significant
+summary(stat.cox.me.g) #model converges. interaction term not significant.
 
-cox.zph(stat.cox.me.g)
+#in summary, we will go with a. Better to remove the quadratic rain term and be consistent.
+  #Especially as there is no significant interactions with it
 
-anova(stat.cox.me.a, stat.cox.me.g) #sig diff!!
-
-
-
-
-
+summary(stat.cox.me.a)
 #table output
 tbl_regression(stat.cox.me.a, intercept = T, show_single_row = "Sex")
+
+tbl_regression(stat.cox.me.a, intercept = T,
+               show_single_row = "Sex",
+               label = list("rescale(LargeFROH)" = "FROH > 3.3Mb", 
+                            "help" = "Helper in natal territory",
+                            "mean_total_rain"	 = "Mean annual rainfall during lifespan")
+)%>%
+  
+  modify_column_hide(column = conf.low) %>%
+  
+  modify_column_unhide(column = c(std.error,statistic))  
+
 
 
 
@@ -630,34 +745,43 @@ tbl_regression(stat.cox.me.a, intercept = T, show_single_row = "Sex")
 
 #first bin the rohs
 
+#sort out sensible bin sizes
+
 cox.plot.birds <- stat.birds
 cox.plot.birds$FROH_class <- 0
 cox.plot.birds <- cox.plot.birds %>% select(-DeathEventL)
 
 
+hist(cox.plot.birds$LargeFROH)
+
+quantile(cox.plot.birds$LargeFROH, probs = c(0.1,0.9))
+
+
 for (n in seq(length(cox.plot.birds$LargeFROH))) {
   
-  if(cox.plot.birds$LargeFROH[n] < 0.2 ) {
-    cox.plot.birds$FROH_class [n] <- "< 0.2"
+  if(cox.plot.birds$LargeFROH[n] < 0.16 ) {
+    cox.plot.birds$FROH_class [n] <- "< 10%"
     
   } 
   
-  if (cox.plot.birds$LargeFROH[n] > 0.2 && cox.plot.birds$LargeFROH[n] <= 0.3){
-    cox.plot.birds$FROH_class [n] <- " 0.2 - 0.3"
+  if (cox.plot.birds$LargeFROH[n] > 0.16 && cox.plot.birds$LargeFROH[n] <= 0.3){
+    cox.plot.birds$FROH_class [n] <- " 10%-90%"
   }
 
   if (cox.plot.birds$LargeFROH[n] > 0.3 ){
-    cox.plot.birds$FROH_class [n] <- ">0.3"
+    cox.plot.birds$FROH_class [n] <- ">90%"
   }
 }
 
 
-cox.surv.froh <- survfit(Surv(lifespan,event)~ LargeFROH, data = cox.plot.birds)
+
+cox.surv.froh <- survfit(Surv(lifespan,event)~ FROH_class, data = cox.plot.birds)
+
 
 cox.surv.froh.plot <- ggsurvplot(cox.surv.froh, data = cox.plot.birds,
-                                  xlab="Years",
-                                  legend.title = "FROH >33MB proportion",
-                                  legend.labs = c("< 0.2", "0.2-0.3", "> 0.3"),
+                                  xlab="Age",
+                                  legend.title = "FROH >33MB quantile",
+                                 legend.labs = c("10%-90%","<10%", "> 90%"),
                                   pval = TRUE,
                                   conf.int = TRUE,
                                   font.y = 20,
@@ -665,8 +789,8 @@ cox.surv.froh.plot <- ggsurvplot(cox.surv.froh, data = cox.plot.birds,
                                   font.legend  = c(20, "blue"))
 
 
-cox.surv.froh.plot
 
+cox.surv.froh.plot+ggtitle("Fig. 4.1 - Cox Proportional Hazards Model with FROH Quantiles")
 
 #ggpredict plot
 
@@ -675,7 +799,10 @@ cox.plot.ph.ggpedict.data <- ggpredict(cox.plot.ph , terms = "LargeFROH[all]" )
 cox.plot.ph <- coxph(Surv(lifespan, event) ~  rescale(LargeFROH), 
                      data = cox.plot.birds )
 
-plot(cox.plot.ph.ggpedict.data, show_data = TRUE) 
+plot(cox.plot.ph)
+
+
+plot(cox.plot.ph.ggpedict.data, show_data = TRUE)  
 
 
 predict.cox.me.a <- ggpredict(stat.cox.me.a, terms = "LargeFROH[all]")
