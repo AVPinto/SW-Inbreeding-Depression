@@ -1,6 +1,10 @@
 #Inbreeding depression in the Seychelles warbler
 #Alessandro V Pinto
 
+install.packages("gtsummary")
+install.packages("glue")
+
+
 #packages
 library(viridis)
 library(stargazer)
@@ -25,11 +29,14 @@ library(modelsummary)
 library(glmer)
 library(arm)
 library(ggeffects)
+library(ggggeffects)
 library(gtsummary)
 library(glue)
-install.packages("gtsummary")
-install.packages("glue")
 library(interactions)
+
+
+
+
 
 
 #----------------------------------import data--------------
@@ -182,6 +189,14 @@ just.lifespan.nbinom1.h <- update(just.lifespan.nbinom1, ~ . +  I(mean_total_rai
 summary(just.lifespan.nbinom1.h) #model does not converge.
 
 
+#drop lifespan
+
+just.lifespan.nbinom1.x <- update(just.lifespan.nbinom1, ~ . - lifespan)
+
+summary(just.lifespan.nbinom1.x) #model does not converge.
+
+
+
 
 #so in summary model first model is best1
 summary(just.lifespan.nbinom1)
@@ -218,7 +233,7 @@ autoplot(ggpred.just.lifespan.nbinom1)+
   theme_classic2()+
   labs( x = "fROH > 3.3Mb", y= "Predicted Lifespan")+
   theme(text = element_text(size = 20)) +
-  ggtitle("Fig. 1 - Predicted fit of GLMM Lifespan ~ FROH")+
+  ggtitle("Fig. 2 - Predicted fit of GLMM Lifespan ~ FROH")+
   layer_fit_data(alpha = 0.2)
   
 
@@ -344,8 +359,8 @@ tbl_regression(just.fys.rescale.f, intercept = T,
                             help = "Helper in natal territory",
                             "rescale(birth_total_rain)"	 = "Annual rainfall in hatch year",
                             "rescale(BirthRainCV)" = "Variance in rainfall in hatch year",
-                            "I(rescale(birth_total_rain^2))" = "Quadratic of Annual rainfall"))
-%>%
+                            "I(rescale(birth_total_rain^2))" = "Quadratic of Annual rainfall"))%>% 
+
   modify_column_hide(column = conf.low) %>%
   
   modify_column_unhide(column = c(std.error,statistic)) 
@@ -381,10 +396,13 @@ plot(predict.just.fys.rescale.f)
   
   ggplot(just_birds, aes(LargeFROH, adulthood)) +
     geom_boxplot()+
+    geom_jitter(alpha = 0.5)+
   theme_classic2()+
   labs( x = "fROH > 3.3Mb", y= "Recruitment to Adulthood")+
   theme(text = element_text(size = 20))+
-  ggtitle("Fig. 2")
+  ggtitle("Fig. 2")+  
+    geom_signif(comparisons = list(c("0","1")),
+                                  map_signif_level = TRUE)
   
   
   ggplot(just_birds, aes(birth_total_rain, adulthood)) +
@@ -403,13 +421,12 @@ plot(predict.just.fys.rescale.f)
   
   #----------------------------------lifetime reproductive success--------------  
   
-  #unfinished#
   
   hist(just_birds$n_off, breaks = 16)
   
   #quite zero inflated
   
-just.lrs.poisson <- glmmTMB(n_off ~ LargeFROH + lifespan + help + Sex + 
+just.lrs.poisson <- glmmTMB(n_off ~ LargeFROH + help + Sex + 
                               mean_total_rain + mean_rain_cv + birth_year +
                       (1 | mum) + (1 | dad),
                       data = just_birds,
@@ -435,8 +452,8 @@ simulateResiduals(just.lrs.nbinom1, plot = TRUE)
 
 #check for collinearity and overdispersion
 check_collinearity(just.lrs.nbinom1) #vif around one
-check_overdispersion(just.lrs.nbinom1) #no overdisp
-
+check_overdispersion(just.lrs.nbinom1) # overdisp DETECTED
+#some error messages
 
 #nbinom2
 just.lrs.nbinom2 <- update(just.lrs.poisson, family=nbinom2())
@@ -454,9 +471,9 @@ check_overdispersion(just.lrs.nbinom2) #no overdisp
 AIC(just.lrs.nbinom1, just.lrs.nbinom2, just.lrs.poisson)
 
 #df      AIC
-#just.lrs.nbinom1 12 3228.666
-#just.lrs.nbinom2 12 3216.414
-#just.lrs.poisson 11 3384.531
+#ust.lrs.nbinom1 11       NA doesn't convert
+#just.lrs.nbinom2 11 3986.743
+#just.lrs.poisson 10 4162.900
 
 summary(just.lrs.nbinom1)
 summary(just.lrs.nbinom2)
@@ -489,9 +506,9 @@ anova(just.lrs.poisson, just.lrs.poisson.c)
 
 just.lrs.poisson.d <- update(just.lrs.poisson , ~ . + LargeFROH*mean_total_rain)
 
-summary(just.lrs.poisson.d) #model converges, is significant!
+summary(just.lrs.poisson.d) #not significant
 
-anova(just.lrs.poisson, just.lrs.poisson.d) #anova says yes!?
+anova(just.lrs.poisson, just.lrs.poisson.d) #anova says no!?
 
 
 #froh*rain variance
@@ -502,12 +519,15 @@ summary(just.lrs.poisson.e) #model converges, is not significant!
 
 anova(just.lrs.poisson, just.lrs.poisson.e) #anova says no
 
+#quadratics
 
+just.lrs.poisson.f <- update(just.lrs.poisson , ~ . + I(mean_total_rain^2))
+
+summary(just.lrs.poisson.f) #model does not converge
 
 
 ####summary
-
-#model d, with the froh mean annual rain interaction is the best model
+#in sumarry no interactions are significant so we go with base model
 
 #we will output the base model first just in case
 summary(just.lrs.poisson)
@@ -543,15 +563,12 @@ autoplot(ggpred.just.lrs.poisson)+
   theme_classic2()+
   labs( x = "fROH > 3.3Mb", y= "Lifetime reproductive success")+
   theme(text = element_text(size = 20)) +
-  ggtitle("Fig. 3.1 - Predicted fit of GLMM LRS ~ FROH")+
+  ggtitle("Fig. 3 - Predicted fit of ZI-GLMM LRS ~ FROH")+
   layer_fit_data(alpha = 0.2)
 
 
 
-
-
-
-#output model with interaction
+#output model with interaction - not real any more
 summary(just.lrs.poisson.d)
 
 
@@ -589,9 +606,6 @@ interact_plot(just.lrs.poisson.d,
   theme(text = element_text(size = 20)) +
   ggtitle("Fig. 3.2 - Predicted fit of GLMM LRS ~ FROH
           with Mean Annual Rainfall interaction")
-
-
-
 
 
 #------------------------cox model---------------
@@ -782,8 +796,8 @@ cox.surv.froh.plot <- ggsurvplot(cox.surv.froh, data = cox.plot.birds,
                                   xlab="Age",
                                   legend.title = "FROH >33MB quantile",
                                  legend.labs = c("10%-90%","<10%", "> 90%"),
-                                  pval = TRUE,
-                                  conf.int = TRUE,
+                                  pval = FALSE,
+                                  conf.int = FALSE,
                                   font.y = 20,
                                   font.x = 20,
                                   font.legend  = c(20, "blue"))
