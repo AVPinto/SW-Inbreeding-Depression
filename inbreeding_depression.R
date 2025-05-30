@@ -249,14 +249,52 @@ just.lifespan.largefroh.plot <- ggplot(just_birds, aes(LargeFROH, lifespan)) +
   
 
 
+#why not use a backwards stepwise elimination? why not? just for fun?
+
+#start with a  maximal model including all interactions, then remove the largest p-value
+
+just.lifespan.nbinom1.max <- glmmTMB(lifespan ~ LargeFROH + Sex + help + EPP + mean_total_rain + mean_rain_cv + birth_year +
+                                    LargeFROH*Sex + LargeFROH*help + LargeFROH*EPP + LargeFROH*mean_total_rain +LargeFROH*mean_rain_cv +
+                                    (1 | mum) + (1 | dad)   ,
+                                 data = just_birds,
+                                 ziformula=~1,
+                                 family=nbinom1
+)
+
+summary(just.lifespan.nbinom1.max)
+
+#LargeFROH                  1.6315636  5.0616652   0.322  0.74720   
+#Sex1                      -0.0242044  0.2076214  -0.117  0.90719   
+#help                       0.3055789  0.2470760   1.237  0.21617   
+#EPP                       -0.6362011  0.2737697  -2.324  0.02013 * 
+#mean_total_rain           -0.0001376  0.0004113  -0.335  0.73795   
+#mean_rain_cv               0.7209190  0.6265024   1.151  0.24985   
+#birth_year                -0.0179290  0.0058724  -3.053  0.00226 **
+#LargeFROH:Sex1             0.0158496  0.8862155   0.018  0.98573       Remove this
+#LargeFROH:help            -1.9115783  1.0562165  -1.810  0.07032 . 
+#LargeFROH:EPP              1.6761223  1.1486548   1.459  0.14451   
+#LargeFROH:mean_total_rain -0.0013775  0.0017062  -0.807  0.41946   
+#LargeFROH:mean_rain_cv    -0.4701911  2.5832429  -0.182  0.85557 
 
 
+just.lifespan.nbinom1.1 <- update(just.lifespan.nbinom1.max , ~ . -LargeFROH*Sex )
 
+summary(just.lifespan.nbinom1.1)
 
+#does not converge
 
-
-
-
+#LargeFROH                  1.6315636  5.0616652   0.322  0.74720   
+#Sex1                      -0.0242044  0.2076214  -0.117  0.90719   
+#help                       0.3055789  0.2470760   1.237  0.21617   
+#EPP                       -0.6362011  0.2737697  -2.324  0.02013 * 
+#mean_total_rain           -0.0001376  0.0004113  -0.335  0.73795   
+#mean_rain_cv               0.7209190  0.6265024   1.151  0.24985   
+#birth_year                -0.0179290  0.0058724  -3.053  0.00226 **
+#LargeFROH:Sex1             0.0158496  0.8862155   0.018  0.98573   
+#LargeFROH:help            -1.9115783  1.0562165  -1.810  0.07032 . 
+#LargeFROH:EPP              1.6761223  1.1486548   1.459  0.14451   
+#LargeFROH:mean_total_rain -0.0013775  0.0017062  -0.807  0.41946   
+#LargeFROH:mean_rain_cv    -0.4701911  2.5832429  -0.182  0.85557  
 
 
 
