@@ -1,3 +1,14 @@
 # SW-Inbreeding-Depression
 
-These scripts and data are generated from the Seychelles warbler Research Group.
+These scripts and data analyse intergenerational inbreeding depression in the Seychelles warbler (Acrocephalus sechellensis) from the Cousin island long term study population.
+
+
+inbreeding_depression.r contains analysis of FYS, lifespan, and LRS on individual inbreeding coefficients.
+
+Recruitment.R contains analysis for inter generational inbreeding depression using FYS.
+
+Lifespan.R contains analysis for inter generational inbreeding depression using lifespan.
+
+LRS.R contains analysis for inter generational inbreeding depression using LRS.
+
+All these scripts use clean_data.csv as a base table.
