@@ -319,15 +319,15 @@ autoplot(ggpred.just.lifespan.nbinom1)+
 
 #ggplot
 just.lifespan.largefroh.plot <- ggplot(just_birds, aes(LargeFROH, lifespan)) +
-  geom_point(alpha = 0.5)+
+  geom_point(alpha = 1)+
   geom_smooth(method = "lm",
               colour = "black",
-              size = 2)+
+              linewidth = 2)+
   theme_classic2()+
   labs( x=expression(F[ROH]),
         y= "Lifespan")+
   theme(text = element_text(size = 20))+
-  ggtitle("Fig 2. ")
+  ggtitle("")
 
   
 plot(just.lifespan.largefroh.plot)
@@ -337,7 +337,7 @@ plot(just.lifespan.largefroh.plot)
 
 #use binomial family as survival is binary
 
-just.fys.1 <- glmer(unix_fys ~ LargeFROH  + Sex + help + birth_total_rain + BirthRainCV + 
+just.fys.1 <- glmer(unix_fys ~ LargeFROH  + Sex + h_count + birth_total_rain + BirthRainCV + 
                       (1 | birth_year) + (1 | mum) + (1 | dad) ,
                     data = just_birds,
                     family=binomial,
@@ -434,12 +434,19 @@ tbl_regression(just.fys.rescale.a, intercept = T,
                             "rescale(birth_total_rain)"	 = "Annual rainfall in hatch year",
                             "rescale(BirthRainCV)" = "Variance in rainfall in hatch year",
                             "sib_pres" = "Presence of sibling in nest",
-                            "rescale(natal_group_size)" = "Natal group size"
-                            ))%>% 
+                            "rescale(natal_group_size)" = "Natal group size"),
+                estimate_fun = label_style_sigfig(digits = 3),
+                pvalue_fun = label_style_pvalue(digits = 3)
+                            )%>% 
 
   modify_column_hide(column = conf.low) %>%
   
-  modify_column_unhide(column = c(std.error,statistic)) 
+  modify_column_unhide(column = c(std.error,statistic)) %>%
+  
+  modify_fmt_fun(
+    std.error  = function(x) style_sigfig(x, digits = 3),
+    statistic  = function(x) style_sigfig(x, digits = 3)
+  )
 
 
 
@@ -566,7 +573,7 @@ simulateResiduals(just.lrs.poisson, plot = T) #a bit wiggly there
 
 #check for collinearity and overdispersion
 check_collinearity(just.lrs.poisson) #vif around one
-check_overdispersion(just.lrs.poisson) #overdispersion not looking good at all,
+check_overdispersion(just.lrs.poisson) #overdispersion not bad
 check_zeroinflation(just.lrs.poisson)
 testZeroInflation(just.lrs.poisson)
 
@@ -579,9 +586,10 @@ just.lrs.poisson <- glmmTMB(n_off ~ rescale(LargeFROH) + Sex + h_countF  +
                               (1 | birth_year) +
                               (1 | mum) + (1 | dad),
                             data = just_birds,
-                            ziformula=~rescale(LargeFROH) +birth_year+
+                            ziformula=~rescale(LargeFROH) + Sex + h_countF  + 
                               rescale(mean_total_rain) + rescale(mean_rain_cv)+
-                              lifespan+sib_pres,
+                              sib_pres + rescale(natal_group_size) + birth_year +
+                              lifespan,
                             family=poisson)
 
 check_overdispersion(just.lrs.poisson)
@@ -633,17 +641,17 @@ summary(just.lrs.poisson)
 
 just.lrs.poisson.b <- update(just.lrs.poisson , ~ . + rescale(LargeFROH)*h_countF)
 
-summary(just.lrs.poisson.b) #model converges, not sig
+summary(just.lrs.poisson.b) #model converges,  sig
 
-anova(just.lrs.poisson, just.lrs.poisson.b) #anova says not quite
+anova(just.lrs.poisson, just.lrs.poisson.b) #anova says not better fit
 
 #froh*sex
 
 just.lrs.poisson.c <- update(just.lrs.poisson , ~ . + rescale(LargeFROH)*Sex)
 
-summary(just.lrs.poisson.c) #model converges, anova says not quite 
+summary(just.lrs.poisson.c) #model has trouble. interaction marginal
 
-anova(just.lrs.poisson, just.lrs.poisson.c) 
+anova(just.lrs.poisson, just.lrs.poisson.c) #anova says no
 
 #froh*mean_rain
 
@@ -658,7 +666,7 @@ anova(just.lrs.poisson, just.lrs.poisson.d) #anova says no!?
 
 just.lrs.poisson.e <- update(just.lrs.poisson , ~ . + rescale(LargeFROH)*rescale(mean_rain_cv))
 
-summary(just.lrs.poisson.e) #very marginal! almost sig!
+summary(just.lrs.poisson.e) #lots of failures of convergence here
 
 anova(just.lrs.poisson, just.lrs.poisson.e) #anova says no!
 
@@ -667,7 +675,7 @@ anova(just.lrs.poisson, just.lrs.poisson.e) #anova says no!
 
 just.lrs.poisson.f <- update(just.lrs.poisson , ~ . + rescale(LargeFROH)*sib_pres)
 
-summary(just.lrs.poisson.f) #sig
+summary(just.lrs.poisson.f) #not sig
 
 anova(just.lrs.poisson, just.lrs.poisson.f) #anova says no!!!
 
@@ -676,7 +684,7 @@ anova(just.lrs.poisson, just.lrs.poisson.f) #anova says no!!!
 
 just.lrs.poisson.g <- update(just.lrs.poisson , ~ . + rescale(LargeFROH)*rescale(natal_group_size))
 
-summary(just.lrs.poisson.g) #not quite significant
+summary(just.lrs.poisson.g) #nope
 
 anova(just.lrs.poisson, just.lrs.poisson.g) #anova says no
 
@@ -728,13 +736,21 @@ tbl_regression(just.lrs.poisson, intercept = T,
                             "rescale(mean_rain_cv)" = "Mean variance in annual rainfall over lifespan",
                             birth_year = "Hatch year",
                             sib_pres = "Sibling presence in nest",
-                            "rescale(natal_group_size)" = "Natal group size"),
-                            lifespan = "Lifespan"
+                            "rescale(natal_group_size)" = "Natal group size",
+                            lifespan = "Lifespan"),
+               estimate_fun = label_style_sigfig(digits = 3),
+               pvalue_fun = label_style_pvalue(digits = 3)
+               
 )%>%
   
   modify_column_hide(column = conf.low) %>%
   
-  modify_column_unhide(column = c(std.error,statistic))  
+  modify_column_unhide(column = c(std.error,statistic))  %>%
+  
+  modify_fmt_fun(
+         std.error  = function(x) style_sigfig(x, digits = 3),
+        statistic  = function(x) style_sigfig(x, digits = 3)
+  )
 
 
 ##plots
@@ -785,14 +801,16 @@ autoplot(LRS.plot.ggpred)+
 #plot with ggplot
 
 #ggplot
-just.lrs.largefroh.plot <- ggplot(just_birds, aes(LargeFROH, lifespan)) +
-  geom_point(alpha = 0.5)+
-  geom_smooth(method = "lm" , colour = "black", size = 2)+
+just.lrs.largefroh.plot <- ggplot(just_birds, aes(LargeFROH, n_off)) +
+  geom_point(alpha = 1)+
+  geom_smooth(method = "lm" , 
+              colour = "black", 
+              linewidth = 2)+
   theme_classic2()+
   labs( x = expression(F[ROH]),
-        y= "Lifetime reproductive success")+
+        y= "Productivity")+
   theme(text = element_text(size = 20))+
-  ggtitle("Fig 3. ")
+  ggtitle("")
 
 
 plot(just.lrs.largefroh.plot)

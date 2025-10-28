@@ -46,7 +46,9 @@ install.packages("ggsignif")
 install.packages("ggeffects")
 install.packages("simpleboot")
 install.packages("ggtext")
+install.packages("sjPlot")
 
+library(sjPlot)
 library(simpleboot)
 library(ggplot2)
 library(ggeffects)
@@ -78,6 +80,7 @@ library(ggtext)
 ##Factorise
 stat.birds <- read.csv("Data/clean_data.csv")
 stat.birds$h_countF <- as.factor(stat.birds$h_count)
+stat.birds$help <- 0
 stat.birds$BreedSeason <- as.factor(stat.birds$BreedSeason)
 stat.birds$Sex <- as.factor(stat.birds$Sex)
 stat.birds$DeathEventL <- as.logical(stat.birds$DeathEvent)
@@ -125,8 +128,8 @@ dim(both_birds) #503 samples
 
 #rescale variables for model convergence
 
-both.fys.b <- glmer(unix_fys ~ rescale(LargeFROH) + rescale(BrMLargeFroh) + rescale(dadLargeFroh)
-                    + rescale(mumLargeFroh) +
+both.fys.b <- glmer(unix_fys ~ rescale(LargeFROH) + 
+                      rescale(BrMLargeFroh) + rescale(dadLargeFroh) + rescale(mumLargeFroh) +
                       h_countF +  rescale(birth_total_rain) + rescale(BirthRainCV) + 
                       Sex + rescale(natal_group_size) + sib_pres + EPP +
                       (1 | birth_year) + (1 | mum) + (1 | dad),
@@ -135,24 +138,34 @@ both.fys.b <- glmer(unix_fys ~ rescale(LargeFROH) + rescale(BrMLargeFroh) + resc
                     control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e8)))
 
 #is singular
-#mum and dad as random effects are incredibly small, remove them
+summary(both.fys.b)
+#random effects are incredibly small, remove them
 
-both.fys.b <- glmer(unix_fys ~ rescale(LargeFROH) + rescale(BrMLargeFroh) + rescale(dadLargeFroh)
-                    + rescale(mumLargeFroh) +  
-                        rescale(birth_total_rain) + rescale(BirthRainCV) + 
-                      Sex + rescale(natal_group_size) + sib_pres + EPP +
-                      (1 | birth_year),
+both.fys.b <- glm(unix_fys ~ rescale(LargeFROH)+ 
+                      rescale(BrMLargeFroh) + 
+                      rescale(dadLargeFroh) + 
+                      rescale(mumLargeFroh) +  
+                      rescale(birth_total_rain) + rescale(BirthRainCV) + 
+                      Sex + 
+                      h_countF +
+                      rescale(natal_group_size) + 
+                      sib_pres +
+                      EPP ,
                     data = both_birds,
-                    family=binomial,
-                    control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e9)))
+                    family=binomial)
 
+check_collinearity(both.fys.b)
+
+check_overdispersion(both.fys.b)
+
+check_singularity(both.fys.b)
 #no longer singular
 
 vif(both.fys.b) #vifs are low. BrM is at 1.3. Can include EPP
 
 simulateResiduals(both.fys.b, plot = T) #looks good.
 
-summary(both.fys.b)
+
 
 ##------check for interactions---
 
@@ -160,7 +173,7 @@ summary(both.fys.b)
 
 #BrM x help
 
-both.fys.c <- update(both.fys.b, ~ . + rescale(BrMLargeFroh)*h_count )
+both.fys.c <- update(both.fys.b, ~ . + rescale(BrMLargeFroh)*h_countF )
 
 vif(both.fys.c) #vifs are ok
 
@@ -170,7 +183,7 @@ summary(both.fys.c) #ns
 
 #dad x help
 
-both.fys.d <- update(both.fys.b, ~ . + rescale(dadLargeFroh)*help )
+both.fys.d <- update(both.fys.b, ~ . + rescale(dadLargeFroh)*h_countF )
 
 vif(both.fys.d) #vifs are ok
 
@@ -180,7 +193,7 @@ summary(both.fys.d) #ns
 
 #mum x help
 
-both.fys.e <- update(both.fys.b, ~ . + rescale(mumLargeFroh)*help )
+both.fys.e <- update(both.fys.b, ~ . + rescale(mumLargeFroh)*h_countF )
 
 vif(both.fys.e) #vifs are ok
 
@@ -250,6 +263,7 @@ both.fys.k <- update(both.fys.b, ~ . + rescale(mumLargeFroh)*rescale(BirthRainCV
 vif(both.fys.k) #vifs are ok
 
 simulateResiduals(both.fys.k, plot = T) #looks good.
+
 
 summary(both.fys.k) #ns
 
@@ -354,7 +368,7 @@ simulateResiduals(both.fys.w, plot = T) #looks good.
 
 summary(both.fys.w) #significant!!!!!
 
-#so in summary,  a mum froh * mum status(both.fys.t) interaction
+#so in summary,  a mum froh * sib_presence(both.fys.t) interaction
 
 ##--output------------- 
 #lets try just the base model first
@@ -371,14 +385,20 @@ tbl_regression(both.fys.b, intercept = T,
                             "rescale(BirthRainCV)" = "Variance in annual rainfall during hatch year",
                             "rescale(BrMLargeFroh)" = "Social Father FROH",
                             "rescale(dadLargeFroh)" = "Genetic Father FROH",
-                            "rescale(mumLargeFroh)" = "Mother FROH"
-                            )
-               
-)%>%
+                            "rescale(mumLargeFroh)" = "Mother FROH"),
+               estimate_fun = label_style_sigfig(digits = 3),
+               pvalue_fun = label_style_pvalue(digits = 3)
+)%>% 
   
   modify_column_hide(column = conf.low) %>%
   
-  modify_column_unhide(column = c(std.error,statistic))  
+  modify_column_unhide(column = c(std.error,statistic)) %>%
+  
+  modify_fmt_fun(
+    std.error  = function(x) style_sigfig(x, digits = 3),
+    statistic  = function(x) style_sigfig(x, digits = 3)
+  )
+
 
 
 #plot base model
@@ -455,7 +475,7 @@ summary(both.fys.w)
 tbl_regression(both.fys.w, intercept = T,
                show_single_row = "Sex",
                label = list("rescale(LargeFROH)" = "FROH > 3.3Mb", 
-                            "help" = "Helper in natal territory",
+                            "h_countF" = "Helper in natal territory",
                             "rescale(birth_total_rain)"	 = "Annual rainfall during hatch year",
                             "rescale(BirthRainCV)" = "Variance in annual rainfall during hatch year",
                             "rescale(BrMLargeFroh)" = "Social Father FROH",
@@ -463,14 +483,26 @@ tbl_regression(both.fys.w, intercept = T,
                             "rescale(mumLargeFroh)" = "Mother FROH",
                             "rescale(natal_group_size)"= "Natal group size",
                             "sib_pres"  = "Sibling presence",
-                            "rescale(MumAge)" = "Mother's age at hatching"
-               )
-               
-)%>%
+                            "rescale(MumAge)" = "Mother's age at hatching"),
+               estimate_fun = label_style_sigfig(digits = 3),
+               pvalue_fun = label_style_pvalue(digits = 3)
+)%>% 
   
   modify_column_hide(column = conf.low) %>%
   
-  modify_column_unhide(column = c(std.error,statistic))  
+  modify_column_unhide(column = c(std.error,statistic)) %>%
+  
+  modify_fmt_fun(
+    std.error  = function(x) style_sigfig(x, digits = 3),
+    statistic  = function(x) style_sigfig(x, digits = 3)
+  )
+
+#tables with sjplot
+
+
+
+tab_model(both.fys.w, show.est = T)
+
 
 
 #plot interactions
@@ -486,10 +518,10 @@ fys.mumXgroup.ggplot <- ggplot(both_birds, aes(x =mumLargeFroh,
               method = "lm",
               size = 2,
               se = T)+
-  geom_point(shape = 1,
+  geom_point(
              size = 2)+
   scale_y_continuous(breaks = c(0,1))+
-  labs(title = "Fig. 4.2.",
+  labs(title = "",
        y = "FYS",
        x = bquote("Mother's F"[ROH]))+
   theme_classic()+

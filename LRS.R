@@ -109,30 +109,43 @@ both_birds <- stat.birds %>% filter(event == 0,
 hist(female_birds$n_off) #data is very 0 inflated
 
 
-both.lrs.poisson <- glmmTMB(n_off ~ rescale(LargeFROH) + rescale(BrMLargeFroh)
-                            +rescale(dadLargeFroh) + rescale(mumLargeFroh) + lifespan +
-                              Sex + h_countF + 
-                              rescale(mean_total_rain) + rescale(mean_rain_cv) +
-                              rescale(birth_year) + 
-                              (1 | mum) + (1 | dad) ,
+both.lrs.poisson <- glmmTMB(n_off ~ rescale(LargeFROH) + 
+                              rescale(BrMLargeFroh) + rescale(dadLargeFroh) + rescale(mumLargeFroh) +
+                            Sex +
+                            h_countF + 
+                            rescale(mean_total_rain) + rescale(mean_rain_cv) +
+                            EPP +  
+                            sib_pres+
+                              natal_group_size +
+                            rescale(birth_year) + 
+                            lifespan  ,
                             data = both_birds,
-                            ziformula=~1,
+                            ziformula=~rescale(LargeFROH) + 
+                              rescale(BrMLargeFroh) + rescale(dadLargeFroh) + rescale(mumLargeFroh) +
+                              Sex +
+                              h_countF + 
+                              rescale(mean_total_rain) + rescale(mean_rain_cv) +
+                              EPP +  
+                              sib_pres+
+                              natal_group_size+
+                              rescale(birth_year) + 
+                              lifespan,
                             family=poisson)
 
 
 summary(both.lrs.poisson)
 
-simulateResiduals(both.lrs.poisson, plot = T) #looks good
+simulateResiduals(both.lrs.poisson, plot = T)  #looks pretty ok?
 
 #check for collinearity and overdispersion
 check_collinearity(both.lrs.poisson) #vif around one
-check_overdispersion(both.lrs.poisson) #no overdisp
+check_overdispersion(both.lrs.poisson) #some  overdisp
 
 
 
 #check nbinom1 family distribution
 
-both.lrs.nbinom1 <- update(both.lrs.poisson, family = nbinom1)
+both.lrs.nbinom1 <- update(both.lrs.poisson, family = nbinom1) #convergance problems
 
 simulateResiduals(both.lrs.nbinom1, plot = T) #looks good
 
@@ -145,7 +158,7 @@ summary(both.lrs.nbinom1)
 
 #check nbinom2
 
-both.lrs.nbinom2 <- update(both.lrs.poisson, family = nbinom2)
+both.lrs.nbinom2 <- update(both.lrs.poisson, family = nbinom2) #more convergance problems
 
 simulateResiduals(both.lrs.nbinom2, plot = T) #looks good
 
@@ -158,82 +171,80 @@ summary(both.lrs.nbinom2)
 
 #AIV comparison
 AIC(both.lrs.nbinom1,both.lrs.nbinom2,both.lrs.poisson)
-#both.lrs.nbinom1 16 1789.766
-#both.lrs.nbinom2 16 1797.306
-#both.lrs.poisson 15 1851.769
+#both.lrs.nbinom1 31 1314.986
+#both.lrs.nbinom2 31 1307.910
+#both.lrs.poisson 30 1319.289
 
-#nbinom1 has lowest AIC and residuals all look fine, so use that
-
-
+#go with poisson, aic problems in others.
 
 
-#test interactions
+
+
+#--------------test interactions-----------
 
 
 #test for sex
 
 #dadLargeFroh * Sex
-both.lrs.nbinom1.a <- update(both.lrs.nbinom1, ~ . + rescale(dadLargeFroh)*Sex)
+both.lrs.poisson.a <- update(both.lrs.poisson, ~ . + rescale(dadLargeFroh)*Sex)
 
-summary(both.lrs.nbinom1.a) #ns
+summary(both.lrs.poisson.a) #ns
 
-simulateResiduals(both.lrs.nbinom1.a, plot = T) #seems ok
+simulateResiduals(both.lrs.poisson.a, plot = T) #seems ok
 
 #brMfroh * Sex
 
-both.lrs.nbinom1.b <- update(both.lrs.nbinom1, ~ . + rescale(BrMLargeFroh)*Sex)
+both.lrs.poisson.b <- update(both.lrs.poisson, ~ . + rescale(BrMLargeFroh)*Sex)
 
-summary(both.lrs.nbinom1.b) #ns but marginal 
+summary(both.lrs.poisson.b) #ns but marginal 
 
-simulateResiduals(both.lrs.nbinom1.b, plot = T) #seems ok
+simulateResiduals(both.lrs.poisson.b, plot = T) #seems ok
 
 #mumfroh * Sex
 
-both.lrs.nbinom1.c <- update(both.lrs.nbinom1, ~ . + rescale(mumLargeFroh)*Sex)
+both.lrs.poisson.c <- update(both.lrs.poisson, ~ . + rescale(mumLargeFroh)*Sex)
 
-summary(both.lrs.nbinom1.c) #almost si
+summary(both.lrs.poisson.c) #significant!
 
-anova(both.lrs.nbinom1, both.lrs.nbinom1.c) #
+anova(both.lrs.poisson, both.lrs.poisson.c) #adds to model fit great
 
-simulateResiduals(both.lrs.nbinom1.c, plot = T) #seems ok
+simulateResiduals(both.lrs.poisson.c, plot = T) #seems ok
 
 
 #what is happening
 
-ggplot(both_birds,aes(dadLargeFroh, n_off,group = Sex,colour = Sex))+
+ggplot(both_birds,aes(mumLargeFroh, n_off,group = Sex,colour = Sex))+
   geom_smooth(method = "lm")
 
-
+#seems that females have +ve, males -ve, but both seem close to zero? will test seperately
 
 
 #test against help
 
 #rescale(dadLargeFroh) * help
-both.lrs.nbinom1.d<- update(both.lrs.nbinom1, ~ . + rescale(dadLargeFroh)*h_countF - (1|dad) - (1|mum))
+both.lrs.poisson.d<- update(both.lrs.poisson.c, ~ . + rescale(dadLargeFroh)*h_countF ) #model convergence prob
 
-summary(both.lrs.nbinom1.d) #ns
+summary(both.lrs.poisson.d) #ns
 
-simulateResiduals(both.lrs.nbinom1.d, plot = T) #seems ok
+simulateResiduals(both.lrs.poisson.d, plot = T) #seems ok
 
 #brMfroh * help
 
-both.lrs.nbinom1.e <- update(both.lrs.nbinom1, ~ . + rescale(BrMLargeFroh)*help)
+both.lrs.poisson.e <- update(both.lrs.poisson.c, ~ . + rescale(BrMLargeFroh)*h_countF)
 
-summary(both.lrs.nbinom1.e) #ns
+summary(both.lrs.poisson.e) #ns
 
-simulateResiduals(both.lrs.nbinom1.e, plot = T) #seems ok
+simulateResiduals(both.lrs.poisson.e, plot = T) #seems ok
 
 #mumfroh * help
 
-both.lrs.nbinom1.f <- update(both.lrs.nbinom1, ~ . + rescale(mumLargeFroh)*help)
+both.lrs.poisson.f <- update(both.lrs.poisson.c, ~ . + rescale(mumLargeFroh)*h_countF)
 
-summary(both.lrs.nbinom1.f) #ns
+summary(both.lrs.poisson.f) #ns
 
-anova(both.lrs.nbinom1, both.lrs.nbinom1.f) #ns
+anova(both.lrs.poisson, both.lrs.poisson.f) #ns
 
-simulateResiduals(both.lrs.nbinom1.f, plot = T) #seems ok
-
-
+simulateResiduals(both.lrs.poisson.f, plot = T) #seems ok
 
 
 
@@ -244,27 +255,27 @@ simulateResiduals(both.lrs.nbinom1.f, plot = T) #seems ok
 
 
 #rescale(dadLargeFroh) * total rain
-both.lrs.nbinom1.g <- update(both.lrs.nbinom1, ~ . + rescale(dadLargeFroh)*rescale(mean_total_rain))
+both.lrs.poisson.g <- update(both.lrs.poisson.c, ~ . + rescale(dadLargeFroh)*rescale(mean_total_rain))
 
-summary(both.lrs.nbinom1.g) #ns
+summary(both.lrs.poisson.g) #ns
 
-simulateResiduals(both.lrs.nbinom1.g, plot = T) #seems ok
+simulateResiduals(both.lrs.poisson.g, plot = T) #seems ok
 
 #brMfroh * total rain
 
-both.lrs.nbinom1.h <- update(both.lrs.nbinom1, ~ . + rescale(BrMLargeFroh)*rescale(mean_total_rain))
+both.lrs.poisson.h <- update(both.lrs.poisson.c, ~ . + rescale(BrMLargeFroh)*rescale(mean_total_rain))
 
-summary(both.lrs.nbinom1.h) #ns  
+summary(both.lrs.poisson.h) #ns  
 
-simulateResiduals(both.lrs.nbinom1.h, plot = T) #seems ok
+simulateResiduals(both.lrs.poisson.h, plot = T) #seems ok
 
 #mumfroh * mean_total_rain
 
-both.lrs.nbinom1.i <- update(both.lrs.nbinom1, ~ . + rescale(mumLargeFroh)*rescale(mean_total_rain))
+both.lrs.poisson.i <- update(both.lrs.poisson.c, ~ . + rescale(mumLargeFroh)*rescale(mean_total_rain))
 
-summary(both.lrs.nbinom1.i) #small effect size, marginal
+summary(both.lrs.poisson.i) #small effect size, marginal
 
-simulateResiduals(both.lrs.nbinom1.i, plot = T) #seems ok
+simulateResiduals(both.lrs.poisson.i, plot = T) #seems ok
 
 
 
@@ -272,33 +283,33 @@ simulateResiduals(both.lrs.nbinom1.i, plot = T) #seems ok
 
 
 #rescale(dadLargeFroh) * rain variance
-both.lrs.nbinom1.j <- update(both.lrs.nbinom1, ~ . + rescale(dadLargeFroh)*rescale(mean_rain_cv))
+both.lrs.poisson.j <- update(both.lrs.poisson.c, ~ . + rescale(dadLargeFroh)*rescale(mean_rain_cv))
 
-summary(both.lrs.nbinom1.j) #ns
-anova(both.lrs.nbinom1, both.lrs.nbinom1.j) #ns
+summary(both.lrs.poisson.j) #ns
+anova(both.lrs.poisson, both.lrs.poisson.j) #ns
 
-simulateResiduals(both.lrs.nbinom1.j, plot = T) #seems ok
+simulateResiduals(both.lrs.poisson.j, plot = T) #seems ok
 
 
 #brMfroh * mean_rain_cv
 
-both.lrs.nbinom1.k <- update(both.lrs.nbinom1, ~ . + rescale(BrMLargeFroh)*rescale(mean_rain_cv))
+both.lrs.poisson.k <- update(both.lrs.poisson.c, ~ . + rescale(BrMLargeFroh)*rescale(mean_rain_cv))
 
-summary(both.lrs.nbinom1.k) #ns 
-anova(both.lrs.nbinom1, both.lrs.nbinom1.k) #ns
+summary(both.lrs.poisson.k) #ns 
+anova(both.lrs.poisson, both.lrs.poisson.k) #ns
 
-simulateResiduals(both.lrs.nbinom1.j, plot = T) #seems ok
+simulateResiduals(both.lrs.poisson.j, plot = T) #seems ok
 
 #mumfroh * mean_rain_cv
 
-both.lrs.nbinom1.l <- update(both.lrs.nbinom1, ~ . + rescale(mumLargeFroh)*rescale(mean_rain_cv))
+both.lrs.poisson.l <- update(both.lrs.poisson.c, ~ . + rescale(mumLargeFroh)*rescale(mean_rain_cv))
 
-summary(both.lrs.nbinom1.l) #ns
+summary(both.lrs.poisson.l) #ns
 
-simulateResiduals(both.lrs.nbinom1.l, plot = T) #seems ok
+simulateResiduals(both.lrs.poisson.l, plot = T) #seems ok
 
 
-#in summary no significant interactions here
+#in summary, mumFROH AND SEX EFFECT IS ALL
 
 #--------output---
 
@@ -335,30 +346,32 @@ poster.int.plot <- ggplot(both_birds, aes(y = n_off)) +
 
 
   
+  #output mumfroh x sex interaction
   
-  
-summary(both.lrs.nbinom1)
+summary(both.lrs.poisson.c)
 
-tbl_regression(both.lrs.nbinom1, intercept = T,
+tbl_regression(both.lrs.poisson.c, intercept = T,
                show_single_row = "Sex",
-               label = list("LargeFROH" = "FROH > 3.3Mb", 
-                            "h_countF" = "Helper in natal territory",
+               label = list("rescale(LargeFROH)" = "FROH", 
+                            "h_count" = "Helper in natal territory",
                             "rescale(mean_total_rain)"	 = "Mean annual rainfall during lifespan",
                             "rescale(mean_rain_cv)" = "Mean variance annual rainfall during lifespan",
                             "rescale(BrMLargeFroh)" = "Social Father FROH",
                             "rescale(dadLargeFroh)" = "Genetic Father FROH",
                             "rescale(mumLargeFroh)" = "Mother FROH",
-                            "rescale(birth_year)" = "Birth Year",
-                            "lifespan" = "Lifespan"
-    
-                            
-               )
-               
-)%>%
+                            "rescale(birth_year)" = "Hatch Year"),
+               estimate_fun = label_style_sigfig(digits = 3),
+               pvalue_fun = label_style_pvalue(digits = 3)
+)%>% 
   
   modify_column_hide(column = conf.low) %>%
   
-  modify_column_unhide(column = c(std.error,statistic))  
+  modify_column_unhide(column = c(std.error,statistic)) %>%
+  
+  modify_fmt_fun(
+    std.error  = function(x) style_sigfig(x, digits = 3),
+    statistic  = function(x) style_sigfig(x, digits = 3)
+  )
 
 #plot basic parental froh with ggplot
 
@@ -409,13 +422,6 @@ plot.both.lrs.mum<-ggplot(both_birds, aes(mumLargeFroh, n_off)) +
 
 
 
-
-
-
-
-
-
-
 #plot brm*rain variance
 
 interact_plot(both.lrs.poisson.int.7,
@@ -440,10 +446,10 @@ ggplot(both_birds,aes(mumLargeFroh, n_off , group = Sex, fill = Sex))+
   geom_smooth(method = "lm")+
   geom_jitter(aes(color  = Sex))+
   theme_classic2()+
-  labs( x = "Mother's FROH > 3.3Mb",
-        y= "LRS",)+
+ labs( x = bquote("Mother's F"[ROH]),
+        y= "Productivity" ) +
   theme(text = element_text(size = 20)) +
-  ggtitle("Fig. 7.2 Mother's FROH and LRS by sex")
+  ggtitle("")
 
 
 #plot mother froh helper
@@ -516,12 +522,97 @@ autoplot(LRS.paternal.model.ggpred )+
 
 
 
+#------------test lrs split by sex-------
 
 
 
+female.lrs.poisson.1 <- glmmTMB(n_off ~ rescale(LargeFROH) + 
+                                          rescale(BrMLargeFroh) + rescale(dadLargeFroh) + rescale(mumLargeFroh) +
+                                          rescale(mean_total_rain) + rescale(mean_rain_cv) +
+                                          sib_pres+
+                                          rescale(birth_year) + 
+                                          lifespan  ,
+                                        data = female_birds,
+                                        ziformula=~rescale(LargeFROH) + 
+                                          rescale(BrMLargeFroh) + rescale(dadLargeFroh) + rescale(mumLargeFroh) +
+                                          rescale(mean_total_rain) + rescale(mean_rain_cv) +
+                                          sib_pres+
+                                          rescale(birth_year) + 
+                                          lifespan,
+                                        family=poisson)
 
 
-#----------------eppp----------
+summary(female.lrs.poisson.1)
+
+tbl_regression(female.lrs.poisson.1, intercept = T,
+               show_single_row = "sib_pres",
+               label = list("rescale(LargeFROH)" = "FROH", 
+                            "h_count" = "Helper in natal territory",
+                            "rescale(mean_total_rain)"	 = "Mean annual rainfall during lifespan",
+                            "rescale(mean_rain_cv)" = "Mean variance annual rainfall during lifespan",
+                            "rescale(BrMLargeFroh)" = "Social Father FROH",
+                            "rescale(dadLargeFroh)" = "Genetic Father FROH",
+                            "rescale(mumLargeFroh)" = "Mother FROH",
+                            "rescale(birth_year)" = "Hatch Year"),
+               estimate_fun = label_style_sigfig(digits = 3),
+               pvalue_fun = label_style_pvalue(digits = 3)
+)%>% 
+  
+  modify_column_hide(column = conf.low) %>%
+  
+  modify_column_unhide(column = c(std.error,statistic)) %>%
+  
+  modify_fmt_fun(
+    std.error  = function(x) style_sigfig(x, digits = 3),
+    statistic  = function(x) style_sigfig(x, digits = 3)
+  )
+
+
+
+male.lrs.poisson.1 <- glmmTMB(n_off ~ rescale(LargeFROH) + 
+                                  rescale(BrMLargeFroh) + rescale(dadLargeFroh) + rescale(mumLargeFroh) +
+                                  rescale(mean_total_rain) + rescale(mean_rain_cv) +
+                                  sib_pres+
+                                  rescale(birth_year) + 
+                                  lifespan  ,
+                                data = female_birds,
+                                ziformula=~rescale(LargeFROH) + 
+                                  rescale(BrMLargeFroh) + rescale(dadLargeFroh) + rescale(mumLargeFroh) +
+                                  rescale(mean_total_rain) + rescale(mean_rain_cv) +
+                                  sib_pres+
+                                  rescale(birth_year) + 
+                                  lifespan,
+                                family=poisson)
+
+
+summary(male.lrs.poisson.1)
+
+tbl_regression(male.lrs.poisson.1, intercept = T,
+               show_single_row = "sib_pres",
+               label = list("rescale(LargeFROH)" = "FROH", 
+                            "h_count" = "Helper in natal territory",
+                            "rescale(mean_total_rain)"	 = "Mean annual rainfall during lifespan",
+                            "rescale(mean_rain_cv)" = "Mean variance annual rainfall during lifespan",
+                            "rescale(BrMLargeFroh)" = "Social Father FROH",
+                            "rescale(dadLargeFroh)" = "Genetic Father FROH",
+                            "rescale(mumLargeFroh)" = "Mother FROH",
+                            "rescale(birth_year)" = "Hatch Year"),
+               estimate_fun = label_style_sigfig(digits = 3),
+               pvalue_fun = label_style_pvalue(digits = 3)
+)%>% 
+  
+  modify_column_hide(column = conf.low) %>%
+  
+  modify_column_unhide(column = c(std.error,statistic)) %>%
+  
+  modify_fmt_fun(
+    std.error  = function(x) style_sigfig(x, digits = 3),
+    statistic  = function(x) style_sigfig(x, digits = 3)
+  )
+
+
+
+#----------------epp split test----------
 #lets split these into EPP and non EPP. Just for fun.
 
 
@@ -535,7 +626,6 @@ dim(epp_birds) #n = 356
 wp.lrs.poisson.1 <- glmmTMB(n_off ~ LargeFROH + dadLargeFroh + mumLargeFroh + 
                               help + Sex + 
                               mean_total_rain + mean_rain_cv + birth_year +
-                               BrMLargeFroh*mean_rain_cv +
                               (1 | mum) + (1 | dad),
                             data = both_birds,
                             ziformula=~1,
@@ -548,7 +638,7 @@ summary(wp.lrs.poisson.1) #the interaction is significant
 
 #without int
 epp.lrs.poisson.0 <- glmmTMB(n_off ~ LargeFROH + dadLargeFroh + mumLargeFroh + BrMLargeFroh +
-                               help + Sex + 
+                               h_countF + Sex + 
                                mean_total_rain + mean_rain_cv + birth_year +
                                (1 | mum) + (1 | dad),
                              data = both_birds,

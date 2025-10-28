@@ -145,7 +145,10 @@ both.lifespan.poisson <- glmmTMB(lifespan ~ rescale(LargeFROH) + rescale(BrMLarg
                                  +rescale(dadLargeFroh) + rescale(mumLargeFroh) +
                                    Sex + h_countF + 
                                    rescale(mean_total_rain) + rescale(mean_rain_cv) +
-                                   rescale(birth_year) + 
+                                   sib_pres +
+                                   natal_group_size +
+                                   EPP +
+                                   rescale(birth_year)+
                                    (1 | mum) + (1 | dad) ,
                                  data = both_birds,
                                  ziformula=~0,
@@ -153,7 +156,7 @@ both.lifespan.poisson <- glmmTMB(lifespan ~ rescale(LargeFROH) + rescale(BrMLarg
 )
 
 
-simulateResiduals(both.lifespan.poisson, plot = T) # looks ok
+simulateResiduals(both.lifespan.poisson, plot = T) # looks a bit wobbly
 
 check_collinearity(both.lifespan.poisson) #vifs around 1
 
@@ -166,7 +169,7 @@ summary(both.lifespan.poisson) #converges ok
 
 both.lifespan.nbinom1 <- update(both.lifespan.poisson, family = nbinom1)
 
-simulateResiduals(both.lifespan.nbinom1, plot = T) # looks ok
+simulateResiduals(both.lifespan.nbinom1, plot = T) # looks slightly better
 
 check_collinearity(both.lifespan.nbinom1) #vifs around 1
 
@@ -176,7 +179,7 @@ summary(both.lifespan.nbinom1) #converges ok
 
 #nbinom2
 
-both.lifespan.nbinom2 <- update(both.lifespan.poisson, family = nbinom2)
+both.lifespan.nbinom2 <- update(both.lifespan.poisson, family = nbinom2) #step failure
 
 simulateResiduals(both.lifespan.nbinom2, plot = T) # outliers detected but line looks ok
 
@@ -190,49 +193,51 @@ summary(both.lifespan.nbinom2) #converges ok
 
 AIC(both.lifespan.poisson, both.lifespan.nbinom1, both.lifespan.nbinom2)
 
-#both.lifespan.poisson 15 2571.912
-#both.lifespan.nbinom1 16 2484.645
-#both.lifespan.nbinom2 16 2449.768
+#both.lifespan.poisson 17 2573.122
+#both.lifespan.nbinom1 18 2487.459
+#both.lifespan.nbinom2 18 2452.439
 
-#nbinom 2 is lowest AIC but has outliers in the test, go with nbinom1
+#nbinom 2 is lowest AIC 
 
 #frohs w/ sex
 
 #brm * sex
 
-both.lifespan.nbinom1.a <- update(both.lifespan.nbinom1, ~ . + rescale(BrMLargeFroh)*Sex) 
+both.lifespan.nbinom2.a <- update(both.lifespan.nbinom2, ~ . + rescale(BrMLargeFroh)*Sex) 
 
-simulateResiduals(both.lifespan.nbinom1.a, plot = T) # looks ok
+simulateResiduals(both.lifespan.nbinom2.a, plot = T) # looks ok
 
-check_collinearity(both.lifespan.nbinom1.a) #vifs around 1
+check_collinearity(both.lifespan.nbinom2.a) #vifs around 1
 
-check_overdispersion(both.lifespan.nbinom1.a) #none detected
+check_overdispersion(both.lifespan.nbinom2.a) #none detected
 
-summary(both.lifespan.nbinom1.a) #ns
+summary(both.lifespan.nbinom2.a) #ns
 
 #dad * sex
 
-both.lifespan.nbinom1.b <- update(both.lifespan.nbinom1, ~ . + rescale(dadLargeFroh)*Sex) 
+both.lifespan.nbinom2.b <- update(both.lifespan.nbinom2, ~ . + rescale(dadLargeFroh)*Sex) 
 
-simulateResiduals(both.lifespan.nbinom1.b, plot = T) # looks a bit weird
+simulateResiduals(both.lifespan.nbinom2.b, plot = T) # looks a bit weird
 
-check_collinearity(both.lifespan.nbinom1.b) #vifs around 1
+check_collinearity(both.lifespan.nbinom2.b) #vifs around 1
 
-check_overdispersion(both.lifespan.nbinom1.b) #none detected
+check_overdispersion(both.lifespan.nbinom2.b) #none detected
 
-summary(both.lifespan.nbinom1.b) #it's significant!
+summary(both.lifespan.nbinom2.b) #it's almost significant!
+
+anova(both.lifespan.nbinom2,both.lifespan.nbinom2.b) #anova says almost?
 
 #mum * sex
 
-both.lifespan.nbinom1.c <- update(both.lifespan.nbinom1, ~ . + rescale(mumLargeFroh)*Sex) 
+both.lifespan.nbinom2.c <- update(both.lifespan.nbinom2, ~ . + rescale(mumLargeFroh)*Sex) 
 
-simulateResiduals(both.lifespan.nbinom1.c, plot = T) # looks a bit weird
+simulateResiduals(both.lifespan.nbinom2.c, plot = T) # looks a bit weird
 
-check_collinearity(both.lifespan.nbinom1.c) #vifs around 1
+check_collinearity(both.lifespan.nbinom2.c) #vifs around 1
 
-check_overdispersion(both.lifespan.nbinom1.c) #none detected
+check_overdispersion(both.lifespan.nbinom2.c) #none detected
 
-summary(both.lifespan.nbinom1.c) #ns
+summary(both.lifespan.nbinom2.c) #ns
 
 #dadFROH * sex interaction!
 
@@ -283,125 +288,130 @@ ggplot(both_birds, aes(x= dadLargeFroh,y= lifespan))+
 
 #brm * help
 
-both.lifespan.nbinom1.d<- update(both.lifespan.nbinom1.b, ~ . + rescale(BrMLargeFroh)*h_countF) 
+both.lifespan.nbinom2.d<- update(both.lifespan.nbinom2, ~ . + rescale(BrMLargeFroh)*h_countF) 
 
-simulateResiduals(both.lifespan.nbinom1.d, plot = T) # looks ok
+simulateResiduals(both.lifespan.nbinom2.d, plot = T) # looks ok
 
-check_collinearity(both.lifespan.nbinom1.d) #vifs around 1
+check_collinearity(both.lifespan.nbinom2.d) #vifs around 1
 
-check_overdispersion(both.lifespan.nbinom1.d) #none detected
+check_overdispersion(both.lifespan.nbinom2.d) #none detected
 
-summary(both.lifespan.nbinom1.d) #not quite ns
+summary(both.lifespan.nbinom2.d) #not quite ns
 
 #dad * help
 
-both.lifespan.nbinom1.e <- update(both.lifespan.nbinom1.b, ~ . + rescale(dadLargeFroh)*h_countF) 
+both.lifespan.nbinom2.e <- update(both.lifespan.nbinom2, ~ . + rescale(dadLargeFroh)*h_countF) 
 
-simulateResiduals(both.lifespan.nbinom1.e, plot = T) # looks a bit weird
+simulateResiduals(both.lifespan.nbinom2.e, plot = T) # looks a bit weird
 
-check_collinearity(both.lifespan.nbinom1.e) #vifs around 1
+check_collinearity(both.lifespan.nbinom2.e) #vifs around 1
 
-check_overdispersion(both.lifespan.nbinom1.e) #none detected
+check_overdispersion(both.lifespan.nbinom2.e) #none detected
 
-summary(both.lifespan.nbinom1.e) #ns
+summary(both.lifespan.nbinom2.e) #ns
 
-anova(both.lifespan.nbinom1, both.lifespan.nbinom1.e) #ns
+anova(both.lifespan.nbinom2, both.lifespan.nbinom2.e) #ns
 
 #mum * help
 
-both.lifespan.nbinom1.f <- update(both.lifespan.nbinom1.b, ~ . + rescale(mumLargeFroh)*h_countF) 
+both.lifespan.nbinom2.f <- update(both.lifespan.nbinom2, ~ . + rescale(mumLargeFroh)*h_countF) 
 
-simulateResiduals(both.lifespan.nbinom1.f, plot = T) # looks a bit weird
+simulateResiduals(both.lifespan.nbinom2.f, plot = T) # looks a bit weird
 
-check_collinearity(both.lifespan.nbinom1.f) #vifs around 1
+check_collinearity(both.lifespan.nbinom2.f) #vifs around 1
 
-check_overdispersion(both.lifespan.nbinom1.f) #none detected
+check_overdispersion(both.lifespan.nbinom2.f) #none detected
 
-summary(both.lifespan.nbinom1.f) #ns
+summary(both.lifespan.nbinom2.f) #ns
 
 
 #interactions with total rain
 
 #brm * rescale(mean_total_rain
 
-both.lifespan.nbinom1.g<- update(both.lifespan.nbinom1.b, ~ . + rescale(BrMLargeFroh)*rescale(mean_total_rain) )
+both.lifespan.nbinom2.g<- update(both.lifespan.nbinom2, ~ . + rescale(BrMLargeFroh)*rescale(mean_total_rain) )
 
-simulateResiduals(both.lifespan.nbinom1.g, plot = T) # looks ok
+simulateResiduals(both.lifespan.nbinom2.g, plot = T) # looks ok
 
-check_collinearity(both.lifespan.nbinom1.g) #vifs around 1
+check_collinearity(both.lifespan.nbinom2.g) #vifs around 1
 
-check_overdispersion(both.lifespan.nbinom1.g) #none detected
+check_overdispersion(both.lifespan.nbinom2.g) #none detected
 
-summary(both.lifespan.nbinom1.g) #ns
+summary(both.lifespan.nbinom2.g) #ns
 
 #dad * rescale(mean_total_rain
 
-both.lifespan.nbinom1.h <- update(both.lifespan.nbinom1.b, ~ . + rescale(dadLargeFroh)*rescale(mean_total_rain)) 
+both.lifespan.nbinom2.h <- update(both.lifespan.nbinom2, ~ . + rescale(dadLargeFroh)*rescale(mean_total_rain)) 
 
-simulateResiduals(both.lifespan.nbinom1.h, plot = T) # looks a bit weird
+simulateResiduals(both.lifespan.nbinom2.h, plot = T) # looks a bit weird
 
-check_collinearity(both.lifespan.nbinom1.h) #vifs around 1
+check_collinearity(both.lifespan.nbinom2.h) #vifs around 1
 
-check_overdispersion(both.lifespan.nbinom1.h) #none detected
+check_overdispersion(both.lifespan.nbinom2.h) #none detected
 
-summary(both.lifespan.nbinom1.h) #ns
+summary(both.lifespan.nbinom2.h) #ns
 
 #mum * rescale(mean_total_rain
 
-both.lifespan.nbinom1.i <- update(both.lifespan.nbinom1.b, ~ . + rescale(mumLargeFroh)*rescale(mean_total_rain) )
+both.lifespan.nbinom2.i <- update(both.lifespan.nbinom2, ~ . + rescale(mumLargeFroh)*rescale(mean_total_rain) )
 
-simulateResiduals(both.lifespan.nbinom1.i, plot = T) # looks a bit weird
+simulateResiduals(both.lifespan.nbinom2.i, plot = T) # looks a bit weird
 
-check_collinearity(both.lifespan.nbinom1.i) #vifs around 1
+check_collinearity(both.lifespan.nbinom2.i) #vifs around 1
 
-check_overdispersion(both.lifespan.nbinom1.i) #none detected
+check_overdispersion(both.lifespan.nbinom2.i) #none detected
 
-summary(both.lifespan.nbinom1.i) #ns
+summary(both.lifespan.nbinom2.i) #ns
 
 
 #interactions with rain variance
 
 #brm * rescale(mean_rain_cv)
 
-both.lifespan.nbinom1.j<- update(both.lifespan.nbinom1.b, ~ . + rescale(BrMLargeFroh)*rescale(mean_rain_cv) )
+both.lifespan.nbinom2.j<- update(both.lifespan.nbinom2, ~ . + rescale(BrMLargeFroh)*rescale(mean_rain_cv) )
 
-simulateResiduals(both.lifespan.nbinom1.j, plot = T) # looks ok
+simulateResiduals(both.lifespan.nbinom2.j, plot = T) # looks ok
 
-check_collinearity(both.lifespan.nbinom1.j) #vifs around 1
+check_collinearity(both.lifespan.nbinom2.j) #vifs around 1
 
-check_overdispersion(both.lifespan.nbinom1.j) #none detected
+check_overdispersion(both.lifespan.nbinom2.j) #none detected
 
-summary(both.lifespan.nbinom1.j) #ns
+summary(both.lifespan.nbinom2.j) #ns
 
 #dad * rescale(mean_rain_cv
 
-both.lifespan.nbinom1.k <- update(both.lifespan.nbinom1.b, ~ . + rescale(dadLargeFroh)*rescale(mean_rain_cv)) 
+both.lifespan.nbinom2.k <- update(both.lifespan.nbinom2, ~ . + rescale(dadLargeFroh)*rescale(mean_rain_cv)) 
 
-simulateResiduals(both.lifespan.nbinom1.k, plot = T) # looks a bit weird
+simulateResiduals(both.lifespan.nbinom2.k, plot = T) # looks a bit weird
 
-check_collinearity(both.lifespan.nbinom1.k) #vifs around 1
+check_collinearity(both.lifespan.nbinom2.k) #vifs around 1
 
-check_overdispersion(both.lifespan.nbinom1.k) #none detected
+check_overdispersion(both.lifespan.nbinom2.k) #none detected
 
-summary(both.lifespan.nbinom1.k) #ns
+summary(both.lifespan.nbinom2.k) #ns
 
 #mum * rescale mean_rain_cv
 
-both.lifespan.nbinom1.l <- update(both.lifespan.nbinom1.b, ~ . + rescale(mumLargeFroh)*rescale(mean_rain_cv) )
+both.lifespan.nbinom2.l <- update(both.lifespan.nbinom2, ~ . + rescale(mumLargeFroh)*rescale(mean_rain_cv) )
 
-simulateResiduals(both.lifespan.nbinom1.l, plot = T) # looks a bit weird
+simulateResiduals(both.lifespan.nbinom2.l, plot = T) # looks a bit weird
 
-check_collinearity(both.lifespan.nbinom1.l) #vifs around 1
+check_collinearity(both.lifespan.nbinom2.l) #vifs around 1
 
-check_overdispersion(both.lifespan.nbinom1.l) #none detected
+check_overdispersion(both.lifespan.nbinom2.l) #none detected
 
-summary(both.lifespan.nbinom1.l) #not
+summary(both.lifespan.nbinom2.l) #not
 
-anova(both.lifespan.nbinom1, both.lifespan.nbinom1.l) #
+anova(both.lifespan.nbinom2, both.lifespan.nbinom2.l) #
 
-#so our sig interactions are;
+#so there is no significant interactions. dad x sex is marginal.
 
-summary(both.lifespan.nbinom1.b) #dadFROH * sex
+summary(both.lifespan.nbinom2.b) #dadFROH * sex
+
+
+#but base model is still best
+
+summary(both.lifespan.nbinom2)
 
 #output######
 
@@ -411,22 +421,28 @@ summary(both.lifespan.nbinom2)
 
 tbl_regression(both.lifespan.nbinom2, intercept = T,
                show_single_row = "Sex",
-               label = list("rescale(LargeFROH)" = "FROH > 3.3Mb", 
-                            "help" = "Helper in natal territory",
+               label = list("rescale(LargeFROH)" = "FROH", 
+                            "h_countF" = "Helper in natal territory",
                             "rescale(mean_total_rain)"	 = "Mean annual rainfall during lifespan",
                             "rescale(mean_rain_cv)" = "Mean variance annual rainfall during lifespan",
                             "rescale(BrMLargeFroh)" = "Social Father FROH",
                             "rescale(dadLargeFroh)" = "Genetic Father FROH",
                             "rescale(mumLargeFroh)" = "Mother FROH",
-                            "rescale(birth_year)" = "Birth Year"
-               )
-               
-)%>%
+                            "rescale(birth_year)" = "Hatch Year",
+                            "sib_pres" = "Sibling presence in nest",
+                            "natal_group_size" = "Natal group size"),
+               estimate_fun = label_style_sigfig(digits = 3),
+               pvalue_fun = label_style_pvalue(digits = 3)
+)%>% 
   
   modify_column_hide(column = conf.low) %>%
   
-  modify_column_unhide(column = c(std.error,statistic))  
-
+  modify_column_unhide(column = c(std.error,statistic)) %>%
+  
+  modify_fmt_fun(
+    std.error  = function(x) style_sigfig(x, digits = 3),
+    statistic  = function(x) style_sigfig(x, digits = 3)
+  )
 
 #plot base model
 
@@ -474,9 +490,9 @@ plot.both.lifespan.brm <-ggplot(both_birds, aes(BrMLargeFroh, lifespan)) +
 
 #output model with both sig interactions
 
-summary(both.lifespan.nbinom1.b)
+summary(both.lifespan.nbinom2.b)
 
-tbl_regression(both.lifespan.nbinom1.b, intercept = T,
+tbl_regression(both.lifespan.nbinom2.b, intercept = T,
                show_single_row = "Sex",
                label = list("rescale(LargeFROH)" = "FROH > 3.3Mb",
                             "rescale(BrMLargeFroh)" = "Social Father FROH",
@@ -485,16 +501,20 @@ tbl_regression(both.lifespan.nbinom1.b, intercept = T,
                             "rescale(mean_total_rain)"	 = "Mean annual rainfall during lifespan",
                             "rescale(mean_rain_cv)" = "Mean variance annual rainfall during lifespan",
                             "rescale(birth_year)" = "Birth Year",
-                            "rescale(dadLargeFroh)*Sex" = "Genetic father's FROH * Sex"
-                            
-               )
+                            "rescale(dadLargeFroh)*Sex" = "Genetic father's FROH * Sex"),
+               estimate_fun = label_style_sigfig(digits = 3),
+               pvalue_fun = label_style_pvalue(digits = 3)
                
 )%>%
   
   modify_column_hide(column = conf.low) %>%
   
-  modify_column_unhide(column = c(std.error,statistic))  
-
+  modify_column_unhide(column = c(std.error,statistic))  %>%
+  
+  modify_fmt_fun(
+    std.error  = function(x) style_sigfig(x, digits = 3),
+    statistic  = function(x) style_sigfig(x, digits = 3)
+  )
 
 #plot dad * sex
 
