@@ -34,13 +34,10 @@ library(interactions)
 ##Factorise
 stat.birds <- read.csv("Data/clean_data.csv")
 stat.birds$h_countF <- as.factor(stat.birds$h_count)
-stat.birds$BreedSeason <- as.factor(stat.birds$BreedSeason)
 stat.birds$Sex <- as.factor(stat.birds$Sex)
-stat.birds$DeathEventL <- as.logical(stat.birds$DeathEvent)
 stat.birds$mum <- as.factor(stat.birds$mum)
 stat.birds$dad <- as.factor(stat.birds$dad)
 stat.birds$birth_yearF <- as.factor(stat.birds$birth_year)
-stat.birds$adulthood <- as.factor(stat.birds$adulthood)
 stat.birds$sib_pres <- as.factor(stat.birds$sib_pres)
 
 
