@@ -43,12 +43,10 @@ str(stat.birds)
 
 #Factorise 
 stat.birds$h_countF <- as.factor(stat.birds$h_count)
-stat.birds$BreedSeason <- as.factor(stat.birds$BreedSeason)
 stat.birds$Sex <- as.factor(stat.birds$Sex)
 stat.birds$mum <- as.factor(stat.birds$mum)
 stat.birds$dad <- as.factor(stat.birds$dad)
 stat.birds$birth_yearF <- as.factor(stat.birds$birth_year)
-stat.birds$adulthood <- as.factor(stat.birds$adulthood)
 stat.birds$sib_pres <- as.factor(stat.birds$sib_pres)
 
 
@@ -205,6 +203,7 @@ ggplot(just_birds, aes(LargeFROH, unix_fys))+
        x=expression(F[ROH])) +
   theme_classic()+
   theme(text = element_text(size = 20)) 
+
 
 
 
@@ -369,7 +368,17 @@ just.lifespan.largefroh.plot <- ggplot(just_birds, aes(LargeFROH, lifespan)) +
   theme(text = element_text(size = 20))+
   ggtitle("")
 
-  
+ggsave(
+  filename = "Figures/Figure_1.jpg",  # Output file name
+  plot = just.lifespan.largefroh.plot,# Plot object
+  width = 10,
+  height  = 10,
+  dpi = 600                     # Resolution in dots per inch
+)
+
+
+
+
 plot(just.lifespan.largefroh.plot)
 
 
@@ -554,12 +563,20 @@ just.lrs.largefroh.plot <- ggplot(just_birds, aes(LargeFROH, n_off)) +
               linewidth = 2)+
   theme_classic2()+
   labs( x = expression(F[ROH]),
-        y= "Productivity")+
+        y= "Lifetime reproductive success")+
   theme(text = element_text(size = 20))+
   ggtitle("")
 
-
 plot(just.lrs.largefroh.plot)
+
+
+ggsave(
+  filename = "Figures/Figure_2.jpg",  # Output file name
+  plot = just.lrs.largefroh.plot,# Plot object
+  width = 10,
+  height  = 10,
+    dpi = 600                     # Resolution in dots per inch
+)
 
 
 
