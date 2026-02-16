@@ -345,7 +345,7 @@ check_singularity(both.lifespan.nbinom2)
 
 r2(both.lifespan.nbinom2)
 
-#output######
+#-------------------------------output------------------######
 
 #lets plot the base model first
 
