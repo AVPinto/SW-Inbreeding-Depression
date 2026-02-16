@@ -302,15 +302,22 @@ plot.both.lrs.mum<-ggplot(both_birds, aes(mumLargeFroh, n_off)) +
 
 #plot mother froh Sex
 
-ggplot(both_birds,aes(mumLargeFroh, n_off , group = Sex, fill = Sex))+
+lrs.mumfrohXsex.plot <- ggplot(both_birds,aes(mumLargeFroh, n_off , group = Sex, fill = Sex))+
   geom_smooth(method = "lm")+
   geom_jitter(aes(color  = Sex))+
   theme_classic2()+
  labs( x = bquote("Mother's F"[ROH]),
-        y= "Productivity" ) +
+        y= "Lifetime Reproductive Success" ) +
   theme(text = element_text(size = 20)) +
-  ggtitle("")
+  ggtitle("")+
+  theme(legend.position = "none")
 
+
+ggsave("Figures/Figure_4.jpg",
+       plot = lrs.mumfrohXsex.plot,
+       width = 10,
+       height = 10,
+       dpi = 600)
 
 
 #------------epp only models-------------

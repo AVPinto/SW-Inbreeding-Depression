@@ -427,7 +427,7 @@ tbl_regression(both.fys.w, intercept = T,
 #mum * sib
 
 
-fys.mumXgroup.ggplot <- ggplot(both_birds, aes(x =mumLargeFroh,
+fys.mumXsib.ggplot <- ggplot(both_birds, aes(x =mumLargeFroh,
                                                y = unix_fys,
                                                group = sib_pres,
                                                colour = sib_pres))+
@@ -442,9 +442,14 @@ fys.mumXgroup.ggplot <- ggplot(both_birds, aes(x =mumLargeFroh,
        y = "First Year Survival",
        x = bquote("Mother's F"[ROH]))+
   theme_classic()+
-  theme(text = element_text(size = 20)) 
+  theme(text = element_text(size = 20)) +
+  theme(legend.position = "none")
 
-fys.mumXgroup.ggplot 
+fys.mumXsib.ggplot 
 
-
+ggsave("Figures/Figure_3.jpg",
+       plot = fys.mumXsib.ggplot,
+       width = 10,
+       height = 10,
+       dpi = 600)
 
